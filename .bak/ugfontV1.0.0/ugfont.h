@@ -25,16 +25,16 @@ extern "C" {
 
 
 
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 	#include "UVGUI.h"
-#endif /*END of USE_UVGUI_LIB*/
+#endif /*END of USE_UGUI_LIB*/
 
 #define UG_FONT_DECLARE(font_name) extern struct _ug_font_struct font_name;
 
 
 /*********************** User config ***********************/
-/*if used in uvgui, enable this macro.*/
-//#define USE_UVGUI_LIB
+/*if used in ugui, enable this macro.*/
+//#define USE_UGUI_LIB
 
 #define UG_TAB_SIZE 4
 
@@ -51,7 +51,7 @@ UG_FONT_DECLARE(ug_font_consolas_16px_15)
 /**********************
  *      TYPEDEFS
  **********************/
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 
 #else
 	#define UG_LOG_WARN(x)  
@@ -161,7 +161,7 @@ UG_FONT_DECLARE(ug_font_consolas_16px_15)
 
 		return ret;
 	}
-#endif /*END of USE_UVGUI_LIB*/
+#endif /*END of USE_UGUI_LIB*/
 
 
 /*------------------
@@ -323,7 +323,7 @@ void ug_draw_letter(const ug_point_t * pos_p, const ug_font_t * font_p, ug_color
 void ug_draw_str(const ug_point_t * pos_p, const ug_font_t * font_p, ug_color_t color, ug_color_t backcolor, const unsigned char* str);
 
 
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 
 #else
 	void ug_font_register_fill_bitmap_func(__ugfont_fill_bitmap_t func);
@@ -334,7 +334,7 @@ void ug_draw_str(const ug_point_t * pos_p, const ug_font_t * font_p, ug_color_t 
 	ug_color_t ug_color_lighten_with_backcolor(ug_color_t c, ug_color_t backcolor, ug_opa_t lvl);
 	
 	inline ug_color_t ug_color_set_brightness(ug_color_t c, ug_opa_t lvl);
-#endif /*END of USE_UVGUI_LIB*/
+#endif /*END of USE_UGUI_LIB*/
 
 
 

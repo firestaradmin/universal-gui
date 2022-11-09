@@ -7,26 +7,7 @@
 
 
 
-#define _UG_OBJ_PART_VIRTUAL_FIRST 0x01
-#define _UG_OBJ_PART_REAL_FIRST    0x40
 
-/** Design modes */
-enum {
-    UG_DESIGN_DRAW_MAIN, /**< Draw the main portion of the object */
-    UG_DESIGN_DRAW_POST, /**< Draw extras on the object */
-    UG_DESIGN_COVER_CHK, /**< Check if the object fully covers the 'mask_p' area */
-};
-typedef uint8_t ug_design_mode_t;
-
-
-/** Design results */
-enum {
-    UG_DESIGN_RES_OK,          /**< Draw ready */
-    UG_DESIGN_RES_COVER,       /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is fully covered*/
-    UG_DESIGN_RES_NOT_COVER,   /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is not covered*/
-    UG_DESIGN_RES_MASKED,      /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is masked out (children also not cover)*/
-};
-typedef uint8_t ug_design_res_t;
 
 struct _ug_obj_t;
 /**
@@ -37,27 +18,11 @@ typedef ug_design_res_t (*ug_design_cb_t)(struct _ug_obj_t * obj, const ug_area_
 
 enum {
     UG_EVENT_PRESSED,             /**< The object has been pressed*/
-    UG_EVENT_PRESSING,            /**< The object is being pressed (called continuously while pressing)*/
-    UG_EVENT_PRESS_LOST,          /**< User is still pressing but slid cursor/finger off of the object */
-    UG_EVENT_SHORT_CLICKED,       /**< User pressed object for a short period of time, then released it. Not called if dragged. */
-    UG_EVENT_LONG_PRESSED,        /**< Object has been pressed for at least `UG_INDEV_LONG_PRESS_TIME`.  Not called if dragged.*/
-    UG_EVENT_LONG_PRESSED_REPEAT, /**< Called after `UG_INDEV_LONG_PRESS_TIME` in every
-                                       `UG_INDEV_LONG_PRESS_REP_TIME` ms.  Not called if dragged.*/
     UG_EVENT_CLICKED,             /**< Called on release if not dragged (regardless to long press)*/
     UG_EVENT_RELEASED,            /**< Called in every cases when the object has been released*/
-    UG_EVENT_DRAG_BEGIN,
-    UG_EVENT_DRAG_END,
-    UG_EVENT_DRAG_THROW_BEGIN,
-    UG_EVENT_GESTURE,           /**< The object has been gesture*/
     UG_EVENT_KEY,
     UG_EVENT_FOCUSED,
     UG_EVENT_DEFOCUSED,
-    UG_EVENT_LEAVE,
-    UG_EVENT_VALUE_CHANGED,      /**< The object's value has changed (i.e. slider moved) */
-    UG_EVENT_INSERT,
-    UG_EVENT_REFRESH,
-    UG_EVENT_APPLY,  /**< "Ok", "Apply" or similar specific button has clicked*/
-    UG_EVENT_CANCEL, /**< "Close", "Cancel" or similar specific button has clicked*/
     UG_EVENT_DELETE, /**< Object is being deleted */
 };
 typedef uint8_t ug_event_t; /**< Type of event being sent to the object. */
@@ -74,67 +39,21 @@ typedef void (*ug_event_cb_t)(struct _ug_obj_t * obj, ug_event_t event);
   * on the object. */
 enum {
     /*General signals*/
-    UG_SIGNAL_CLEANUP, /**< Object is being deleted */
     UG_SIGNAL_CHILD_CHG, /**< Child was removed/added */
     UG_SIGNAL_COORD_CHG, /**< Object coordinates/size have changed */
-    UG_SIGNAL_PARENT_SIZE_CHG, /**< Parent's size has changed */
-    UG_SIGNAL_STYLE_CHG,    /**< Object's style has changed */
-    UG_SIGNAL_BASE_DIR_CHG, /**<The base dir has changed*/
-    UG_SIGNAL_REFR_EXT_DRAW_PAD, /**< Object's extra padding has changed */
-    UG_SIGNAL_GET_TYPE, /**< LVGL needs to retrieve the object's type */
-    UG_SIGNAL_GET_STYLE, /**<Get the style of an object*/
-    UG_SIGNAL_GET_STATE_DSC, /**<Get the state of the object*/
 
-    /*Input device related*/
-    UG_SIGNAL_HIT_TEST,          /**< Advanced hit-testing */
     UG_SIGNAL_PRESSED,           /**< The object has been pressed*/
-    UG_SIGNAL_PRESSING,          /**< The object is being pressed (called continuously while pressing)*/
-    UG_SIGNAL_PRESS_LOST,        /**< User is still pressing but slid cursor/finger off of the object */
     UG_SIGNAL_RELEASED,          /**< User pressed object for a short period of time, then released it. Not called if dragged. */
-    UG_SIGNAL_LONG_PRESS,        /**< Object has been pressed for at least `UG_INDEV_LONG_PRESS_TIME`.  Not called if dragged.*/
-    UG_SIGNAL_LONG_PRESS_REP,    /**< Called after `UG_INDEV_LONG_PRESS_TIME` in every `UG_INDEV_LONG_PRESS_REP_TIME` ms.  Not called if dragged.*/
-    UG_SIGNAL_DRAG_BEGIN,
-    UG_SIGNAL_DRAG_THROW_BEGIN,
-    UG_SIGNAL_DRAG_END,
-    UG_SIGNAL_GESTURE,          /**< The object has been gesture*/
-    UG_SIGNAL_LEAVE,            /**< Another object is clicked or chosen via an input device */
-
     /*Group related*/
     UG_SIGNAL_FOCUS,
     UG_SIGNAL_DEFOCUS,
-    UG_SIGNAL_CONTROL,
-    UG_SIGNAL_GET_EDITABLE,
 };
 typedef uint8_t ug_signal_t;
 
 typedef ug_res_t (*ug_signal_cb_t)(struct _ug_obj_t * obj, ug_signal_t sign, void * param);
 
-#if UG_USE_OBJ_REALIGN
-typedef struct {
-    const struct _ug_obj_t * base;
-    ug_coord_t xofs;
-    ug_coord_t yofs;
-    ug_align_t align;
-    uint8_t auto_realign : 1;
-    uint8_t origo_align : 1; /**< 1: the origo (center of the object) was aligned with
-                                `ug_obj_align_origo`*/
-} ug_realign_t;
-#endif
 
 
-/*Protect some attributes (max. 8 bit)*/
-enum {
-    UG_PROTECT_NONE      = 0x00,
-    UG_PROTECT_CHILD_CHG = 0x01,   /**< Disable the child change signal. Used by the library*/
-    UG_PROTECT_PARENT    = 0x02,   /**< Prevent automatic parent change (e.g. in ug_page)*/
-    UG_PROTECT_POS       = 0x04,   /**< Prevent automatic positioning (e.g. in ug_cont layout)*/
-    UG_PROTECT_FOLLOW    = 0x08,   /**< Prevent the object be followed in automatic ordering (e.g. in
-                                      ug_cont PRETTY layout)*/
-    UG_PROTECT_PRESS_LOST = 0x10,  /**< If the `indev` was pressing this object but swiped out while
-                                      pressing do not search other object.*/
-    UG_PROTECT_CLICK_FOCUS = 0x20, /**< Prevent focusing the object by clicking on it*/
-};
-typedef uint8_t ug_protect_t;
 
 enum {
     UG_STATE_DEFAULT   =  0x00,
@@ -149,14 +68,6 @@ enum {
 typedef uint8_t ug_state_t;
 
 
-enum {
-    UG_OBJ_PART_MAIN,
-    _UG_OBJ_PART_VIRTUAL_LAST = _UG_OBJ_PART_VIRTUAL_FIRST,
-    _UG_OBJ_PART_REAL_LAST =    _UG_OBJ_PART_REAL_FIRST,
-    UG_OBJ_PART_ALL = 0xFF,
-};
-
-typedef uint8_t ug_obj_part_t;
 
 typedef struct _ug_obj_t {
 	char *name;
@@ -170,36 +81,13 @@ typedef struct _ug_obj_t {
     ug_signal_cb_t signal_cb; /**< Object type specific signal function*/
     ug_design_cb_t design_cb; /**< Object type specific design function*/
 
+    /*Attributes and states*/
     void * ext_attr;            /**< Object type specific extended data*/
+    uint8_t hidden : 1; 
 
     ug_color_t bg_color;
-    ug_coord_t ext_draw_pad; /**< EXTend the size in every direction for drawing. */
 
-    /*Attributes and states*/
-    uint8_t click           : 1; /**< 1: Can be pressed by an input device*/
-    uint8_t drag            : 1; /**< 1: Enable the dragging*/
-    uint8_t drag_throw      : 1; /**< 1: Enable throwing with drag*/
-    uint8_t drag_parent     : 1; /**< 1: Parent will be dragged instead*/
-    uint8_t hidden          : 1; /**< 1: Object is hidden*/
-    uint8_t top             : 1; /**< 1: If the object or its children is clicked it goes to the foreground*/
-    uint8_t parent_event    : 1; /**< 1: Send the object's events to the parent too. */
-    uint8_t adv_hittest     : 1; /**< 1: Use advanced hit-testing (slower) */
-    uint8_t gesture_parent  : 1; /**< 1: Parent will be gesture instead*/
-    uint8_t focus_parent    : 1; /**< 1: Parent will be focused instead*/
-
-
-    uint8_t protect;            /**< Automatically happening actions can be prevented.
-                                     'OR'ed values from `ug_protect_t`*/
     ug_state_t state;
-
-#if UG_USE_OBJ_REALIGN
-    ug_realign_t realign;       /**< Information about the last call to ::ug_obj_align. */
-#endif
-
-#if UG_USE_USER_DATA
-    ug_obj_user_data_t user_data; /**< Custom user data for object. */
-#endif
-
 } ug_obj_t;
 
 /*---------------------
@@ -212,7 +100,6 @@ typedef struct _ug_obj_t {
  * @param copy pointer to a base object, if not NULL then the new object will be copied from it
  * @return pointer to the new object
  */
-//ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy);
 ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name);
 /**
  * Delete 'obj' and all of its children

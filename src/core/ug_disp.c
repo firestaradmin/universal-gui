@@ -1,4 +1,4 @@
-#include "UVGUI.h"
+#include "ug_main.h"
 #include "ug_disp.h"
 #include "ug_mem.h"
 #include "ug_obj.h"
@@ -76,8 +76,6 @@ ug_disp_t * ug_disp_drv_register(ug_disp_drv_t * driver)
     if(act_disp == NULL) act_disp = new_disp;
 
     new_disp->bg_color = UG_COLOR_WHITE;
-    new_disp->bg_img = NULL;
-
 
     /* disp_index use to change active disp */
     new_disp->disp_index = disp_index++;

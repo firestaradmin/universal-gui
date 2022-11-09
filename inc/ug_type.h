@@ -1,5 +1,5 @@
-#ifndef __UVGUI_TYPE_H__
-#define __UVGUI_TYPE_H__
+#ifndef __UGUI_TYPE_H__
+#define __UGUI_TYPE_H__
 #include "ug_user_config.h"
 #include <stdint.h>
 
@@ -47,4 +47,4 @@ typedef uint8_t ug_res_t;
 
 
 
-#endif // !__UVGUI_TYPE_H__
+#endif // !__UGUI_TYPE_H__

@@ -119,7 +119,7 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
         new_obj->coords.y1    = parent->coords.y1;
         new_obj->coords.y2    = parent->coords.y1 + UG_OBJ_DEF_HEIGHT;
 
-        new_obj->bg_color.full     = UVGUI_COLOR_BLUE;
+        new_obj->bg_color.full     = UGUI_COLOR_BLUE;
     }
 
 

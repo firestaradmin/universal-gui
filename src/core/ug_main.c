@@ -1,17 +1,17 @@
 /************************************************************************************
- * Copyright (c), 2020, LXG.
- * A universal GUI Lib, usually used in screen display of Embedded System.
+ * Copyright (c), 2021, LXG.
+ * A universal easy GUI Lib, usually used in screen display of Embedded System.
  * @file UVGUI.c
  * @author firestaradmin
- * @version	2.10
- * @date 2020/11/9
+ * @version	2.1.1
+ * @date 2021/9/15
  * @history:
  * 2020/7/25 V1.00 简易的版本
  * 2020/9/25 V1.10 仿照LVGL，使用链表和对象的思维方式。
- * 2020/11/9 V2.10 化繁为简，自己的思维方式 UVGUI。
+ * 2021/9/15 V2.1.1 更改目录结构，放弃复杂化GUI
  *
  *************************************************************************************/
-#include "UVGUI.h"
+#include "ug_main.h"
 
 #include "ug_mem.h"
 #include "ug_disp.h"
@@ -32,7 +32,7 @@ static bool ug_initialized = false;
 /**
  * Init. the 'ug' library.
  */
-void ug_init(void)
+void ugui_init(void)
 {
     /* Do nothing if already initialized */
     if (ug_initialized)
@@ -62,4 +62,7 @@ void ug_init(void)
     ug_initialized = true;
 
 }
+
+
+
 

@@ -53,7 +53,7 @@ void _ug_disp_refr_task(ug_task_t * task)
         return;
     }
 
-
+    // 将需要重绘的区域合并，如果合并后区域更小的话
     ug_refr_join_area();
 
     ug_refr_areas();
@@ -79,6 +79,8 @@ void _ug_disp_refr_task(ug_task_t * task)
 
 /**
  * Join the areas which has got common parts
+ * 将需要重绘的区域合并，如果合并后区域更小的话
+ * 
  */
 static void ug_refr_join_area(void)
 {
@@ -118,6 +120,7 @@ static void ug_refr_join_area(void)
 
 /**
  * Refresh the joined areas
+ * 重绘需要重绘的区域
  */
 static void ug_refr_areas(void)
 {
@@ -125,7 +128,8 @@ static void ug_refr_areas(void)
 
     /*Find the last area which will be drawn*/
     int32_t i;
-    int32_t last_i = 0;
+    int32_t last_i = 0; 
+    // find a area which not joined to last_i
     for(i = disp_refr->inv_p - 1; i >= 0; i--) {
         if(disp_refr->inv_area_joined[i] == 0) {
             last_i = i;
@@ -133,6 +137,7 @@ static void ug_refr_areas(void)
         }
     }
 
+    // 清楚标志最后的区域正在被渲染的标志位
     disp_refr->driver.buffer->last_area = 0;
     disp_refr->driver.buffer->last_part = 0;
 
@@ -164,22 +169,22 @@ static void ug_refr_area(const ug_area_t * area_p)
         disp_refr->driver.buffer->last_part = 1;
         ug_refr_area_part(area_p);
     }
-    /*The buffer is smaller: refresh the area in parts*/
+    /*The buffer is smaller: refresh the area in parts： 部分刷新模式*/
     else {
         ug_disp_buf_t * vdb = ug_disp_get_buf(disp_refr);
 
-        /* Calculate the max row value */
-        ug_coord_t w = ug_area_get_width(area_p);
-        ug_coord_t h = ug_area_get_height(area_p);
+        ug_coord_t w = ug_area_get_width(area_p);   // 绘制的宽度
+        ug_coord_t h = ug_area_get_height(area_p);  // 绘制的高度
+
+        /* Calculate the max y value */
         ug_coord_t y2 = area_p->y2 >= ug_disp_get_ver_res(disp_refr) ? ug_disp_get_ver_res(disp_refr) - 1 : area_p->y2;
 
-        int32_t max_row = (uint32_t)vdb->size / w;
+        int32_t max_row = (uint32_t)vdb->size / w; // 一次最大能绘制的行数：VDB 能储存的行数
+        if(max_row > h) max_row = h;    
 
-        if(max_row > h) max_row = h;
-
-        /*Always use the full row*/
         ug_coord_t row;
         ug_coord_t row_last = 0;
+        /* 使用完整的VDB大小绘制 */
         for(row = area_p->y1; row + max_row - 1 <= y2; row += max_row) {
             /*Calc. the next y coordinates of VDB*/
             vdb->area.x1 = area_p->x1;
@@ -193,6 +198,7 @@ static void ug_refr_area(const ug_area_t * area_p)
         }
 
         /*If the last y coordinates are not handled yet ...*/
+        /* 如果没绘制完，或者用不到完整的VDB，继续绘制剩余的部分 */
         if(y2 != row_last) {
             /*Calc. the next y coordinates of VDB*/
             vdb->area.x1 = area_p->x1;
@@ -225,8 +231,7 @@ static void ug_refr_area_part(const ug_area_t * area_p)
     ug_obj_t * top_act_scr = NULL;
     ug_obj_t * top_prev_scr = NULL;
 
-    /*Get the new mask from the original area and the act. VDB
-     It will be a part of 'area_p'*/
+    /* 计算当前被绘制的区域 to start_mask */
     ug_area_t start_mask;
     _ug_area_intersect(&start_mask, area_p, &vdb->area);
 
@@ -285,8 +290,7 @@ static ug_obj_t * ug_refr_get_top_obj(const ug_area_t * area_p, ug_obj_t * obj)
 
     /*If this object is fully cover the draw area check the children too */
     if(_ug_area_is_in(area_p, &obj->coords, 0) && obj->hidden == 0) {
-        ug_design_res_t design_res = obj->design_cb ? obj->design_cb(obj, area_p,
-                                                                     UG_DESIGN_COVER_CHK) : UG_DESIGN_RES_NOT_COVER;
+        ug_design_res_t design_res = obj->design_cb ? obj->design_cb(obj, area_p, UG_DESIGN_COVER_CHK) : UG_DESIGN_RES_NOT_COVER;
         if(design_res == UG_DESIGN_RES_MASKED) return NULL;
                                                                                                                 
         ug_obj_t * i;

@@ -156,7 +156,7 @@ void ug_draw_letter(const ug_point_t * pos_p, const ug_font_t * font_p, ug_color
 
 static void draw_letter_normal(ug_coord_t pos_x, ug_coord_t pos_y, ug_font_glyph_dsc_t * g, ug_color_t color, ug_color_t back_color, const uint8_t * map_p)
 {
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 	//TODO: malloc mem of glyph_rect dynamically.
 #else
 	static uint16_t glyph_rect_buf[1000];
@@ -216,7 +216,7 @@ static void draw_letter_normal(ug_coord_t pos_x, ug_coord_t pos_y, ug_font_glyph
 		}
 	}
 
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 
 #else
 	
@@ -307,7 +307,7 @@ static unsigned int unicode_to_utf8(unsigned char *buf, unsigned int unicode)
 
 }
 
-#ifdef USE_UVGUI_LIB
+#ifdef USE_UGUI_LIB
 
 #else
 void ug_font_register_fill_bitmap_func(__ugfont_fill_bitmap_t func)

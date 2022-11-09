@@ -1,3 +1,11 @@
+/*************************************************
+ * @brief ugui obj area lib
+ * @date 2020
+ * @author firestaradmin
+*************************************************/
+
+
+
 #ifndef __UG_AREA_H__
 #define __UG_AREA_H__
 #include "ug_type.h"

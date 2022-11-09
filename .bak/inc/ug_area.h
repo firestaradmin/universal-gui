@@ -1,5 +1,5 @@
 /*************************************************
- * @brief uvgui obj area lib
+ * @brief ugui obj area lib
  * @date 2020
  * @author firestaradmin
 *************************************************/

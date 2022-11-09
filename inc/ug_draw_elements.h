@@ -1,3 +1,10 @@
+/*************************************************
+ * @brief a basic element draw func
+ * @date 2020
+ * @author firestaradmin
+*************************************************/
+
+
 #ifndef __UG_DRAW_ELEMENTS_H__
 #define __UG_DRAW_ELEMENTS_H__
 #include "ug_area.h"
@@ -7,10 +14,7 @@
 #include "ug_color.h"
 
 /* Represents a point  */
-// typedef struct {
-//     ug_coord_t x;
-//     ug_coord_t y;
-// } ug_point_t;
+typedef ug_point_t ug_point_t;
 
 /* Represents a line  */
 typedef struct {

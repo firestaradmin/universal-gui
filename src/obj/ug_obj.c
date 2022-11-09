@@ -49,8 +49,6 @@ static void ug_obj_del_async_cb(void * obj);
 /* obj align */
 static void obj_align_core(ug_obj_t * obj, const ug_obj_t * base, ug_align_t align, bool x_set, bool y_set, ug_coord_t x_ofs, ug_coord_t y_ofs);
 static void obj_align_origo_core(ug_obj_t * obj, const ug_obj_t * base, ug_align_t align,  bool x_set, bool y_set, ug_coord_t x_ofs, ug_coord_t y_ofs);
-
-
 static void refresh_children_position(ug_obj_t * obj, ug_coord_t x_diff, ug_coord_t y_diff);
 
 
@@ -119,42 +117,16 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
         new_obj->coords.y1    = parent->coords.y1;
         new_obj->coords.y2    = parent->coords.y1 + UG_OBJ_DEF_HEIGHT;
 
-        new_obj->bg_color.full     = UVGUI_COLOR_BLUE;
+        new_obj->bg_color.full     = UG_COLOR_BLUE;
     }
 
 
     _ug_ll_init(&(new_obj->child_ll), sizeof(ug_obj_t));
 
-    new_obj->ext_draw_pad = 0;
 
-    /*Init realign*/
-#if UG_USE_OBJ_REALIGN
-    new_obj->realign.align        = UG_ALIGN_CENTER;
-    new_obj->realign.xofs         = 0;
-    new_obj->realign.yofs         = 0;
-    new_obj->realign.base         = NULL;
-    new_obj->realign.auto_realign = 0;
-    new_obj->realign.origo_align  = 0;
-#endif
 
-    /*Init. user date*/
-#if UG_USE_USER_DATA
-    _ug_memset_00(&new_obj->user_data, sizeof(ug_obj_user_data_t));
-#endif
 
-    /*Set attributes*/
-    new_obj->adv_hittest  = 0;
-    new_obj->click        = 1;
-    new_obj->drag         = 0;
-    new_obj->drag_throw   = 0;
-    new_obj->drag_parent  = 0;
-    //new_obj->drag_dir     = UG_DRAG_DIR_BOTH;
-    new_obj->hidden       = 0;
-    new_obj->top          = 0;
-    new_obj->protect      = UG_PROTECT_NONE;
-    new_obj->parent_event = 0;
-    new_obj->gesture_parent = parent ? 1 : 0;
-    new_obj->focus_parent  = 0;
+
     new_obj->state = UG_STATE_DEFAULT;
 
     new_obj->ext_attr = NULL;
@@ -163,50 +135,17 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
     /*Copy the attributes if required*/
     if(copy != NULL) {
         ug_area_copy(&new_obj->coords, &copy->coords);
-        new_obj->ext_draw_pad = copy->ext_draw_pad;
-
-        /*Set user data*/
-#if UG_USE_USER_DATA
-        _ug_memcpy(&new_obj->user_data, &copy->user_data, sizeof(ug_obj_user_data_t));
-#endif
-
-        /*Copy realign*/
-#if UG_USE_OBJ_REALIGN
-        new_obj->realign.align        = copy->realign.align;
-        new_obj->realign.xofs         = copy->realign.xofs;
-        new_obj->realign.yofs         = copy->realign.yofs;
-        new_obj->realign.base         = copy->realign.base;
-        new_obj->realign.auto_realign = copy->realign.auto_realign;
-#endif
-
         /*Only copy the `event_cb`. `signal_cb` and `design_cb` will be copied in the derived
          * object type (e.g. `ug_btn`)*/
         new_obj->event_cb = copy->event_cb;
-
-        /*Copy attributes*/
-        new_obj->adv_hittest  = copy->adv_hittest;
-        new_obj->click        = copy->click;
-        new_obj->drag         = copy->drag;
-        //new_obj->drag_dir     = copy->drag_dir;
-        new_obj->drag_throw   = copy->drag_throw;
-        new_obj->drag_parent  = copy->drag_parent;
-        new_obj->hidden       = copy->hidden;
-        new_obj->top          = copy->top;
-        new_obj->parent_event = copy->parent_event;
-
-        new_obj->protect      = copy->protect;
-        new_obj->gesture_parent = copy->gesture_parent;
-
-
     }
 
     /*Send a signal to the parent to notify it about the new child*/
     if(parent != NULL) {
         parent->signal_cb(parent, UG_SIGNAL_CHILD_CHG, new_obj);
 
-        /*Invalidate the area if not screen created*/
+        /* Invalidate the area */
         ug_obj_invalidate(new_obj);
-
     }
 
     //UG_LOG_INFO("Object create ready");
@@ -273,79 +212,6 @@ ug_res_t ug_event_send(ug_obj_t * obj, ug_event_t event, const void * data)
 }
 
 
-/**
- * Get the `data` parameter of the current event
- * @return the `data` parameter
- */
-const void * ug_event_get_data(void)
-{
-    return event_act_data;
-}
-/**
- * Call an event function with an object, event, and data.
- * @param event_xcb an event callback function. If `NULL` `UG_RES_OK` will return without any actions.
- *        (the 'x' in the argument name indicates that its not a fully generic function because it not follows
- *         the `func_name(object, callback, ...)` convention)
- * @param obj pointer to an object to associate with the event (can be `NULL` to simply call the `event_cb`)
- * @param event an event
- * @param data pointer to a custom data
- * @return UG_RES_OK: `obj` was not deleted in the event; UG_RES_INV: `obj` was deleted in the event
- */
-ug_res_t ug_event_send_func(ug_event_cb_t event_xcb, ug_obj_t * obj, ug_event_t event, const void * data)
-{
-    if(obj != NULL) {
-        //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-    }
-
-    /* Build a simple linked list from the objects used in the events
-     * It's important to know if an this object was deleted by a nested event
-     * called from this `even_cb`. */
-    ug_event_temp_data_t event_temp_data;
-    event_temp_data.obj     = obj;
-    event_temp_data.deleted = false;
-    event_temp_data.prev    = NULL;
-
-    if(event_temp_data_head) {
-        event_temp_data.prev = event_temp_data_head;
-    }
-    event_temp_data_head = &event_temp_data;
-
-    const void * event_act_data_save = event_act_data;
-    event_act_data                   = data;
-
-    /*Call the input device's feedback callback if set*/
-    // ug_indev_t * indev_act = ug_indev_get_act();
-    // if(indev_act) {
-    //     if(indev_act->driver.feedback_cb) indev_act->driver.feedback_cb(&indev_act->driver, event);
-    // }
-
-    /*Call the event callback itself*/
-    if(event_xcb) event_xcb(obj, event);
-
-    /*Restore the event data*/
-    event_act_data = event_act_data_save;
-
-    /*Remove this element from the list*/
-    event_temp_data_head = event_temp_data_head->prev;
-
-    if(event_temp_data.deleted) {
-        return UG_RES_INV;
-    }
-
-    if(obj) {
-        if(obj->parent_event && obj->parent) {
-            ug_res_t res = ug_event_send(obj->parent, event, data);
-            if(res != UG_RES_OK) {
-                return UG_RES_INV;
-            }
-        }
-    }
-
-    return UG_RES_OK;
-}
-
-
-
 
 /**
  * Send an event to the object
@@ -397,7 +263,7 @@ void ug_obj_invalidate_area(const ug_obj_t * obj, const ug_area_t * area)
         is_common = _ug_area_intersect(&area_trunc, area, &obj_coords);
         if(is_common == false) return;  /*The area is not on the object*/
 
-        /*Truncate recursively to the parents*/
+        /* 检查obj 是不是在 par obj 内部 */
         ug_obj_t * par = ug_obj_get_parent(obj);
         while(par != NULL) {
             is_common = _ug_area_intersect(&area_trunc, &area_trunc, &par->coords);
@@ -417,31 +283,89 @@ void ug_obj_invalidate_area(const ug_obj_t * obj, const ug_area_t * area)
  */
 void ug_obj_invalidate(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
+    // /*Truncate the area to the object*/
+    // ug_area_t obj_coords;
+    // ug_coord_t ext_size = obj->ext_draw_pad;
+    // ug_area_copy(&obj_coords, &obj->coords);
+    // obj_coords.x1 -= ext_size;
+    // obj_coords.y1 -= ext_size;
+    // obj_coords.x2 += ext_size;
+    // obj_coords.y2 += ext_size;
 
-    /*Truncate the area to the object*/
-    ug_area_t obj_coords;
-    ug_coord_t ext_size = obj->ext_draw_pad;
-    ug_area_copy(&obj_coords, &obj->coords);
-    obj_coords.x1 -= ext_size;
-    obj_coords.y1 -= ext_size;
-    obj_coords.x2 += ext_size;
-    obj_coords.y2 += ext_size;
-
-    ug_obj_invalidate_area(obj, &obj_coords);
+    ug_obj_invalidate_area(obj, &obj->coords);
 
 }
 
 
 
-/*=======================
- * Getter functions
- *======================*/
-
 
 /*-----------------
  * Attribute get
  *----------------*/
+
+
+/**
+ * Get the hidden attribute of an object
+ * @param obj pointer to an object
+ * @return true: the object is hidden
+ */
+bool ug_obj_get_hidden(const ug_obj_t * obj)
+{
+    return obj->hidden == 0 ? false : true;
+}
+
+/**
+ * Return with the screen of an object
+ * @param obj pointer to an object
+ * @return pointer to a screen
+ */
+ug_obj_t * ug_obj_get_screen(const ug_obj_t * obj)
+{
+    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
+
+    const ug_obj_t * par = obj;
+    const ug_obj_t * act_p;
+
+    do {
+        act_p = par;
+        par   = ug_obj_get_parent(act_p);
+    } while(par != NULL);
+
+    return (ug_obj_t *)act_p;
+}
+
+/**
+ * Get the display of an object
+ * @param scr pointer to an object
+ * @return pointer the object's display
+ */
+ug_disp_t * ug_obj_get_disp(const ug_obj_t * obj)
+{
+    //ug_ASSERT_OBJ(obj, UG_OBJX_NAME);
+
+    const ug_obj_t * scr;
+
+    if(obj->parent == NULL)
+        scr = obj; /*`obj` is a screen*/
+    else
+        scr = ug_obj_get_screen(obj); /*get the screen of `obj`*/
+
+    ug_disp_t * d;
+
+    _UG_LL_READ(_ug_disp_ll, d) {
+        ug_obj_t * s;
+        _UG_LL_READ(d->scr_ll, s) {
+            if(s == scr) return d;
+        }
+    }
+
+    //ug_LOG_WARN("ug_scr_get_disp: screen not found")
+    return NULL;
+}
+
+
+#if 0
+
 /**
  * Copy the coordinates of an object to an area
  * @param obj pointer to an object
@@ -520,66 +444,6 @@ ug_coord_t ug_obj_get_height(const ug_obj_t * obj)
     return ug_area_get_height(&obj->coords);
 }
 
-/**
- * Get the hidden attribute of an object
- * @param obj pointer to an object
- * @return true: the object is hidden
- */
-bool ug_obj_get_hidden(const ug_obj_t * obj)
-{
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    return obj->hidden == 0 ? false : true;
-}
-
-/**
- * Return with the screen of an object
- * @param obj pointer to an object
- * @return pointer to a screen
- */
-ug_obj_t * ug_obj_get_screen(const ug_obj_t * obj)
-{
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    const ug_obj_t * par = obj;
-    const ug_obj_t * act_p;
-
-    do {
-        act_p = par;
-        par   = ug_obj_get_parent(act_p);
-    } while(par != NULL);
-
-    return (ug_obj_t *)act_p;
-}
-
-/**
- * Get the display of an object
- * @param scr pointer to an object
- * @return pointer the object's display
- */
-ug_disp_t * ug_obj_get_disp(const ug_obj_t * obj)
-{
-    //ug_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    const ug_obj_t * scr;
-
-    if(obj->parent == NULL)
-        scr = obj; /*`obj` is a screen*/
-    else
-        scr = ug_obj_get_screen(obj); /*get the screen of `obj`*/
-
-    ug_disp_t * d;
-
-    _UG_LL_READ(_ug_disp_ll, d) {
-        ug_obj_t * s;
-        _UG_LL_READ(d->scr_ll, s) {
-            if(s == scr) return d;
-        }
-    }
-
-    //ug_LOG_WARN("ug_scr_get_disp: screen not found")
-    return NULL;
-}
 
 /*---------------------
  * Parent/children get
@@ -1231,13 +1095,6 @@ static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area
  */
 static ug_res_t ug_obj_signal(ug_obj_t * obj, ug_signal_t sign, void * param)
 {
-    // if(sign == UG_SIGNAL_GET_STYLE) {
-    //     ug_get_style_info_t * info = param;
-    //     if(info->part == UG_OBJ_PART_MAIN) info->result = &obj->style_list;
-    //     else info->result = NULL;
-    //     return UG_RES_OK;
-    // }
-    // else if(sign == UG_SIGNAL_GET_TYPE) return ug_obj_handle_get_type_signal(param, UG_OBJX_NAME);
 
     ug_res_t res = UG_RES_OK;
 
@@ -1245,10 +1102,7 @@ static ug_res_t ug_obj_signal(ug_obj_t * obj, ug_signal_t sign, void * param)
         /*Return 'invalid' if the child change signal is not enabled*/
         if(ug_obj_is_protected(obj, UG_PROTECT_CHILD_CHG) != false) res = UG_RES_INV;
     }
-    else if(sign == UG_SIGNAL_REFR_EXT_DRAW_PAD) {
-        // ug_coord_t d = ug_obj_get_draw_rect_ext_pad_size(obj, UG_OBJ_PART_MAIN);
-        // obj->ext_draw_pad = UG_MATH_MAX(obj->ext_draw_pad, d);
-    }
+
 #if UG_USE_OBJ_REALIGN
     else if(sign == UG_SIGNAL_PARENT_SIZE_CHG) {
         if(obj->realign.auto_realign) {
@@ -1256,48 +1110,6 @@ static ug_res_t ug_obj_signal(ug_obj_t * obj, ug_signal_t sign, void * param)
         }
     }
 #endif
-    else if(sign == UG_SIGNAL_STYLE_CHG) {
-        //ug_obj_refresh_ext_draw_pad(obj);
-    }
-    else if(sign == UG_SIGNAL_PRESSED) {
-        //ug_obj_add_state(obj, UG_STATE_PRESSED);
-    }
-    else if(sign == UG_SIGNAL_RELEASED || sign == UG_SIGNAL_PRESS_LOST) {
-        //ug_obj_clear_state(obj, UG_STATE_PRESSED);
-    }
-    else if(sign == UG_SIGNAL_FOCUS) {
-//         bool editing = false;
-// #if UG_USE_GROUP
-//         editing = ug_group_get_editing(ug_obj_get_group(obj));
-// #endif
-//         if(editing) {
-//             uint8_t state = UG_STATE_FOCUSED;
-//             state |= UG_STATE_EDITED;
-
-//             /*if using focus mode, change target to parent*/
-//             obj = ug_obj_get_focused_obj(obj);
-
-//             ug_obj_add_state(obj, state);
-//         }
-//         else {
-
-//             /*if using focus mode, change target to parent*/
-//             obj = ug_obj_get_focused_obj(obj);
-
-//             ug_obj_add_state(obj, UG_STATE_FOCUSED);
-//             ug_obj_clear_state(obj, UG_STATE_EDITED);
-//         }
-    }
-    else if(sign == UG_SIGNAL_DEFOCUS) {
-
-        // /*if using focus mode, change target to parent*/
-        // obj = ug_obj_get_focused_obj(obj);
-
-        // ug_obj_clear_state(obj, UG_STATE_FOCUSED | UG_STATE_EDITED);
-    }
-    else if(sign == UG_SIGNAL_CLEANUP) {
-        // ug_obj_clean_style_list(obj, UG_OBJ_PART_MAIN);
-    }
 
     return res;
 }
@@ -1624,3 +1436,5 @@ static void refresh_children_position(ug_obj_t * obj, ug_coord_t x_diff, ug_coor
 // #endif
 // }
 
+
+#endif

@@ -1,5 +1,5 @@
 /*************************************************
- * @brief color for uvgui
+ * @brief color for ugui
  * @date 2020
  * @author firestaradmin
 *************************************************/

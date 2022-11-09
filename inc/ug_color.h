@@ -1,3 +1,10 @@
+/*************************************************
+ * @brief color for ugui
+ * @date 2020
+ * @author firestaradmin
+*************************************************/
+
+
 #ifndef __UG_COLOR_H__
 #define __UG_COLOR_H__
 

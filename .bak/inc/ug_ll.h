@@ -1,5 +1,5 @@
 /**
- * @brief a link list implemention for uvgui
+ * @brief a link list implemention for ugui
  * @date 2020
  * @author firestaradmin
  * @ps it is study from LVGL

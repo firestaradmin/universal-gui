@@ -39,8 +39,8 @@ typedef struct {
     volatile int flushing;
     /*1: It was the last chunk to flush. (It can't be a bi tfield because when it's cleared from IRQ Read-Modify-Write issue might occur)*/
     volatile int flushing_last;
-    volatile uint32_t last_area         : 1; /*1: the last area is being rendered*/
-    volatile uint32_t last_part         : 1; /*1: the last part of the current area is being rendered*/
+    volatile uint32_t last_area         : 1; /*1: 标志最后一个需要绘制的区域正在被渲染 */
+    volatile uint32_t last_part         : 1; /*1: 标志绘制的区域的最后一个部分正在被渲染 */
 }ug_disp_buf_t;
 
 
@@ -65,7 +65,7 @@ typedef struct _disp_drv_t {
 
     /** MANDATORY: Write the internal buffer (VDB) to the display. 'ug_disp_flush_ready()' has to be
      * called when finished */
-    void (*flush_screen)(struct _disp_drv_t * disp_drv, const ug_area_t * area, ug_color_t * color_p);
+    void (*flush_screen_cb)(struct _disp_drv_t * disp_drv, const ug_area_t * area, ug_color_t * color_p);
 
     /** OPTIONAL: Called periodically while lvgl waits for operation to be completed.
      * For example flushing or GPU
@@ -92,14 +92,8 @@ typedef struct _disp_t {
     /** Screens of the display*/
     ug_ll_t scr_ll;
     struct _ug_obj_t * act_scr;   /**< Currently active screen on this display */
-    struct _ug_obj_t * prev_scr;  /**< Previous screen. Used during screen animations */
 
     ug_color_t bg_color;          /**< Default display color when screens are transparent*/
-    const void * bg_img;       /**< An image source to display as wallpaper*/
-
-    ug_area_t inv_areas[UG_INV_BUF_SIZE];
-    uint8_t inv_area_joined[UG_INV_BUF_SIZE];
-    uint32_t inv_p : 10;    /* invalid parts */
 
     /*Miscellaneous data*/
     uint8_t disp_index;     /* Used to select/change which physical screen to display. */

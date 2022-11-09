@@ -2,7 +2,7 @@
 #define __UG_MEM_H__
 
 #include <stdint.h>
-//#include "UVGUI.h"
+//#include "ug_main.h"
 #include <string.h>
 #include "ug_type.h"
 /*********************

@@ -32,7 +32,7 @@
 
 
 /* Init UVGUI Lib */
-void ug_init(void);
+void ugui_init(void);
 
 
 

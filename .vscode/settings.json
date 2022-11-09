@@ -1,0 +1,13 @@
+{
+    "files.associations": {
+        "*.excalidraw": "json",
+        "*.excalidrawlib": "json",
+        "ug_disp.h": "c",
+        "ug_main.h": "c",
+        "stdio.h": "c"
+    },
+    "files.exclude": {
+        ".bak/**": true,
+
+    },
+}
