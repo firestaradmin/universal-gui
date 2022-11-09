@@ -42,7 +42,7 @@ void ug_disp_drv_init(ug_disp_drv_t * driver)
 {
     _ug_memset_00(driver, sizeof(ug_disp_drv_t));
 
-    driver->flush_screen     = NULL;
+    driver->flush_screen_cb     = NULL;
     driver->hor_res          = UG_HOR_RES_MAX;
     driver->ver_res          = UG_VER_RES_MAX;
     driver->buffer           = NULL;
