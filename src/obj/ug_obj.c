@@ -250,12 +250,7 @@ void ug_obj_invalidate_area(const ug_obj_t * obj, const ug_area_t * area)
     if(obj_scr == ug_disp_get_actscr(disp)){
         /*Truncate the area to the object*/
         ug_area_t obj_coords;
-        ug_coord_t ext_size = obj->ext_draw_pad;
         ug_area_copy(&obj_coords, &obj->coords);
-        obj_coords.x1 -= ext_size;
-        obj_coords.y1 -= ext_size;
-        obj_coords.x2 += ext_size;
-        obj_coords.y2 += ext_size;
 
         bool is_common;
         ug_area_t area_trunc;
@@ -364,7 +359,58 @@ ug_disp_t * ug_obj_get_disp(const ug_obj_t * obj)
 }
 
 
-#if 0
+/*************************************************** static function ***************************************************/
+
+
+/**
+ * Handle the drawing related tasks of the base objects.
+ * @param obj pointer to an object
+ * @param clip_area the object will be drawn only in this area
+ * @param mode UG_DESIGN_COVER_CHK: only check if the object fully covers the 'mask_p' area
+ *                                  (return 'true' if yes)
+ *             UG_DESIGN_DRAW: draw the object (always return 'true')
+ * @param return an element of `ug_design_res_t`
+ * @note 今天的风儿，声嘶力竭的喧嚣，我穿上了我的3级防护服，也抵抗不了它对我的蹂躏。
+ * 它就像大海中的巨兽，鞭挞着我的脸颊，无情、残忍、凶狠。我无力抵抗，还好，内心深处
+ * 的那一丝未来美好的希冀，总是在我即将倒下的时候，支持着我，我会努力的，我会得到我想要的生活，和你一起。
+ */
+static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode)
+{
+    if(mode == UG_DESIGN_COVER_CHK) {
+        /*Most trivial test. Is the mask fully IN the object? If no it surely doesn't cover it*/
+        ug_area_t coords;
+        ug_area_copy(&coords, &obj->coords);
+
+        if(_ug_area_is_in(clip_area, &coords, 0)) 
+            return  UG_DESIGN_RES_COVER;    // area 完全在 obj coords 内部
+            
+        return UG_DESIGN_RES_NOT_COVER;
+    }
+    else if(mode == UG_DESIGN_DRAW_MAIN) {
+        ug_draw_rect_dsc_t draw_dsc;
+        ug_draw_rect_dsc_init(&draw_dsc);
+        ug_area_t coords;
+        ug_area_copy(&coords, &obj->coords);
+
+        draw_dsc.bg_color = obj->bg_color;
+
+        ug_draw_rect(&coords, clip_area, &draw_dsc);
+
+    }
+
+    return UG_DESIGN_RES_OK;
+}
+
+
+
+
+
+/************************************************* static function - END ***********************************************/
+
+
+
+
+#if 1
 
 /**
  * Copy the coordinates of an object to an area
@@ -484,64 +530,7 @@ ug_obj_t * ug_obj_get_child(const ug_obj_t * obj, const ug_obj_t * child)
     return result;
 }
 
-/**
- * Get the really focused object by taking `focus_parent` into account.
- * @param obj the start object
- * @return the object to really focus
- */
-ug_obj_t * ug_obj_get_focused_obj(const ug_obj_t * obj)
-{
-    // if(obj == NULL) return NULL;
-    // const ug_obj_t * focus_obj = obj;
-    // while(ug_obj_get_focus_parent(focus_obj) != false && focus_obj != NULL) {
-    //     focus_obj = ug_obj_get_parent(focus_obj);
-    // }
 
-    // return (ug_obj_t *)focus_obj;
-}
-
-/**
- * Get the protect field of an object
- * @param obj pointer to an object
- * @return protect field ('OR'ed values of `ug_protect_t`)
- */
-uint8_t ug_obj_get_protect(const ug_obj_t * obj)
-{
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    return obj->protect;
-}
-
-/**
- * Check at least one bit of a given protect bitfield is set
- * @param obj pointer to an object
- * @param prot protect bits to test ('OR'ed values of `ug_protect_t`)
- * @return false: none of the given bits are set, true: at least one bit is set
- */
-bool ug_obj_is_protected(const ug_obj_t * obj, uint8_t prot)
-{
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    return (obj->protect & prot) == 0 ? false : true;
-}
-
-ug_state_t ug_obj_get_state(const ug_obj_t * obj, uint8_t part)
-{
-    // UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
-    // if(part < _UG_OBJ_PART_REAL_LAST) return ((ug_obj_t *)obj)->state;
-
-    // /*If a real part is asked, then use the object's signal to get its state.
-    //  * A real object can be in different state then the main part
-    //  * and only the object itself knows who to get it's state. */
-    // ug_get_state_info_t info;
-    // info.part = part;
-    // info.result = UG_STATE_DEFAULT;
-    // ug_signal_send((ug_obj_t *)obj, UG_SIGNAL_GET_STATE_DSC, &info);
-
-    // return info.result;
-
-}
 
 /**
  * Get the signal function of an object
@@ -1042,48 +1031,6 @@ static void obj_del_core(ug_obj_t * obj)
 
 
 
-/**
- * Handle the drawing related tasks of the base objects.
- * @param obj pointer to an object
- * @param clip_area the object will be drawn only in this area
- * @param mode UG_DESIGN_COVER_CHK: only check if the object fully covers the 'mask_p' area
- *                                  (return 'true' if yes)
- *             UG_DESIGN_DRAW: draw the object (always return 'true')
- * @param return an element of `ug_design_res_t`
- * @note 今天的风儿，声嘶力竭的喧嚣，我穿上了我的3级防护服，也抵抗不了它对我的蹂躏。
- * 它就像大海中的巨兽，鞭挞着我的脸颊，无情、残忍、凶狠。我无力抵抗，还好，内心深处
- * 的那一丝未来美好的希冀，总是在我即将倒下的时候，支持着我，我会努力的，我会得到我想要的生活，和你一起。
- */
-static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode)
-{
-    if(mode == UG_DESIGN_COVER_CHK) {
-
-        /*Most trivial test. Is the mask fully IN the object? If no it surely doesn't cover it*/
-        ug_area_t coords;
-        ug_area_copy(&coords, &obj->coords);
-
-
-        if(_ug_area_is_in(clip_area, &coords, 0) == false) return UG_DESIGN_RES_NOT_COVER;
-
-        return  UG_DESIGN_RES_COVER;
-
-    }
-    else if(mode == UG_DESIGN_DRAW_MAIN) {
-        ug_draw_rect_dsc_t draw_dsc;
-        ug_draw_rect_dsc_init(&draw_dsc);
-        ug_area_t coords;
-        ug_area_copy(&coords, &obj->coords);
-
-        draw_dsc.bg_color = obj->bg_color;
-
-        ug_draw_rect(&coords, clip_area, &draw_dsc);
-
-    }
-
-    return UG_DESIGN_RES_OK;
-}
-
-
 
 
 /**
@@ -1296,145 +1243,6 @@ static void refresh_children_position(ug_obj_t * obj, ug_coord_t x_diff, ug_coor
         refresh_children_position(i, x_diff, y_diff);
     }
 }
-
-
-/**
- * Initialize a rectangle descriptor from an object's styles
- * @param obj pointer to an object
- * @param type type of style. E.g.  `UG_OBJ_PART_MAIN`, `UG_BTN_STYLE_REL` or `UG_PAGE_STYLE_SCRL`
- * @param draw_dsc the descriptor the initialize
- * @note Only the relevant fields will be set.
- * E.g. if `border width == 0` the other border properties won't be evaluated.
- */
-// void ug_obj_init_draw_rect_dsc(ug_obj_t * obj, uint8_t part, ug_draw_rect_dsc_t * draw_dsc)
-// {
-//     //draw_dsc->radius = ug_obj_get_style_radius(obj, part);
-
-// #if UG_USE_OPA_SCALE
-//     ug_opa_t opa_scale = ug_obj_get_style_opa_scale(obj, part);
-//     if(opa_scale <= UG_OPA_MIN) {
-//         draw_dsc->bg_opa = UG_OPA_TRANSP;
-//         draw_dsc->border_opa = UG_OPA_TRANSP;
-//         draw_dsc->shadow_opa = UG_OPA_TRANSP;
-//         draw_dsc->pattern_opa = UG_OPA_TRANSP;
-//         draw_dsc->value_opa = UG_OPA_TRANSP;
-//         return;
-//     }
-// #endif
-
-//     if(draw_dsc->bg_opa != UG_OPA_TRANSP) {
-//         draw_dsc->bg_opa = ug_obj_get_style_bg_opa(obj, part);
-//         if(draw_dsc->bg_opa > UG_OPA_MIN) {
-//             draw_dsc->bg_color = ug_obj_get_style_bg_color(obj, part);
-//             draw_dsc->bg_grad_dir =  ug_obj_get_style_bg_grad_dir(obj, part);
-//             if(draw_dsc->bg_grad_dir != UG_GRAD_DIR_NONE) {
-//                 draw_dsc->bg_grad_color = ug_obj_get_style_bg_grad_color(obj, part);
-//                 draw_dsc->bg_main_color_stop =  ug_obj_get_style_bg_main_stop(obj, part);
-//                 draw_dsc->bg_grad_color_stop =  ug_obj_get_style_bg_grad_stop(obj, part);
-//             }
-
-// #if UG_USE_BLEND_MODES
-//             draw_dsc->bg_blend_mode = ug_obj_get_style_bg_blend_mode(obj, part);
-// #endif
-//         }
-//     }
-
-//     if(draw_dsc->border_opa != UG_OPA_TRANSP) {
-//         draw_dsc->border_width = ug_obj_get_style_border_width(obj, part);
-//         if(draw_dsc->border_width) {
-//             draw_dsc->border_opa = ug_obj_get_style_border_opa(obj, part);
-//             if(draw_dsc->border_opa > UG_OPA_MIN) {
-//                 draw_dsc->border_side = ug_obj_get_style_border_side(obj, part);
-//                 draw_dsc->border_color = ug_obj_get_style_border_color(obj, part);
-//             }
-// #if UG_USE_BLEND_MODES
-//             draw_dsc->border_blend_mode = ug_obj_get_style_border_blend_mode(obj, part);
-// #endif
-//         }
-//     }
-
-
-//     if(draw_dsc->outline_opa != UG_OPA_TRANSP) {
-//         draw_dsc->outline_width = ug_obj_get_style_outline_width(obj, part);
-//         if(draw_dsc->outline_width) {
-//             draw_dsc->outline_opa = ug_obj_get_style_outline_opa(obj, part);
-//             if(draw_dsc->outline_opa > UG_OPA_MIN) {
-//                 draw_dsc->outline_pad = ug_obj_get_style_outline_pad(obj, part);
-//                 draw_dsc->outline_color = ug_obj_get_style_outline_color(obj, part);
-//             }
-// #if UG_USE_BLEND_MODES
-//             draw_dsc->outline_blend_mode = ug_obj_get_style_outline_blend_mode(obj, part);
-// #endif
-//         }
-//     }
-
-//     if(draw_dsc->pattern_opa != UG_OPA_TRANSP) {
-//         draw_dsc->pattern_image = ug_obj_get_style_pattern_image(obj, part);
-//         if(draw_dsc->pattern_image) {
-//             draw_dsc->pattern_opa = ug_obj_get_style_pattern_opa(obj, part);
-//             if(draw_dsc->pattern_opa > UG_OPA_MIN) {
-//                 draw_dsc->pattern_recolor_opa = ug_obj_get_style_pattern_recolor_opa(obj, part);
-//                 draw_dsc->pattern_repeat = ug_obj_get_style_pattern_repeat(obj, part);
-//                 if(ug_img_src_get_type(draw_dsc->pattern_image) == UG_IMG_SRC_SYMBOL) {
-//                     draw_dsc->pattern_recolor = ug_obj_get_style_pattern_recolor(obj, part);
-//                     draw_dsc->pattern_font = ug_obj_get_style_text_font(obj, part);
-//                 }
-//                 else if(draw_dsc->pattern_recolor_opa > UG_OPA_MIN) {
-//                     draw_dsc->pattern_recolor = ug_obj_get_style_pattern_recolor(obj, part);
-//                 }
-// #if UG_USE_BLEND_MODES
-//                 draw_dsc->pattern_blend_mode = ug_obj_get_style_pattern_blend_mode(obj, part);
-// #endif
-//             }
-//         }
-//     }
-// #if UG_USE_SHADOW
-//     if(draw_dsc->shadow_opa > UG_OPA_MIN) {
-//         draw_dsc->shadow_width = ug_obj_get_style_shadow_width(obj, part);
-//         if(draw_dsc->shadow_width) {
-//             draw_dsc->shadow_opa = ug_obj_get_style_shadow_opa(obj, part);
-//             if(draw_dsc->shadow_opa > UG_OPA_MIN) {
-//                 draw_dsc->shadow_ofs_x = ug_obj_get_style_shadow_ofs_x(obj, part);
-//                 draw_dsc->shadow_ofs_y = ug_obj_get_style_shadow_ofs_y(obj, part);
-//                 draw_dsc->shadow_spread = ug_obj_get_style_shadow_spread(obj, part);
-//                 draw_dsc->shadow_color = ug_obj_get_style_shadow_color(obj, part);
-// #if UG_USE_BLEND_MODES
-//                 draw_dsc->shadow_blend_mode = ug_obj_get_style_shadow_blend_mode(obj, part);
-// #endif
-//             }
-//         }
-//     }
-// #endif
-
-//     if(draw_dsc->value_opa > UG_OPA_MIN) {
-//         draw_dsc->value_str = ug_obj_get_style_value_str(obj, part);
-//         if(draw_dsc->value_str) {
-//             draw_dsc->value_opa = ug_obj_get_style_value_opa(obj, part);
-//             if(draw_dsc->value_opa > UG_OPA_MIN) {
-//                 draw_dsc->value_ofs_x = ug_obj_get_style_value_ofs_x(obj, part);
-//                 draw_dsc->value_ofs_y = ug_obj_get_style_value_ofs_y(obj, part);
-//                 draw_dsc->value_color = ug_obj_get_style_value_color(obj, part);
-//                 draw_dsc->value_font = ug_obj_get_style_value_font(obj, part);
-//                 draw_dsc->value_letter_space = ug_obj_get_style_value_letter_space(obj, part);
-//                 draw_dsc->value_line_space = ug_obj_get_style_value_line_space(obj, part);
-//                 draw_dsc->value_align = ug_obj_get_style_value_align(obj, part);
-// #if UG_USE_BLEND_MODES
-//                 draw_dsc->value_blend_mode = ug_obj_get_style_value_blend_mode(obj, part);
-// #endif
-//             }
-//         }
-//     }
-
-// #if UG_USE_OPA_SCALE
-//     if(opa_scale < UG_OPA_MAX) {
-//         draw_dsc->bg_opa = (uint16_t)((uint16_t)draw_dsc->bg_opa * opa_scale) >> 8;
-//         draw_dsc->border_opa = (uint16_t)((uint16_t)draw_dsc->border_opa * opa_scale) >> 8;
-//         draw_dsc->shadow_opa = (uint16_t)((uint16_t)draw_dsc->shadow_opa * opa_scale) >> 8;
-//         draw_dsc->pattern_opa = (uint16_t)((uint16_t)draw_dsc->pattern_opa * opa_scale) >> 8;
-//         draw_dsc->value_opa = (uint16_t)((uint16_t)draw_dsc->value_opa * opa_scale) >> 8;
-//     }
-// #endif
-// }
 
 
 #endif

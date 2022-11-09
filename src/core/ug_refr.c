@@ -229,7 +229,6 @@ static void ug_refr_area_part(const ug_area_t * area_p)
     }
 
     ug_obj_t * top_act_scr = NULL;
-    ug_obj_t * top_prev_scr = NULL;
 
     /* 计算当前被绘制的区域 to start_mask */
     ug_area_t start_mask;
@@ -237,37 +236,20 @@ static void ug_refr_area_part(const ug_area_t * area_p)
 
     /*Get the most top object which is not covered by others*/
     top_act_scr = ug_refr_get_top_obj(&start_mask, ug_disp_get_actscr(disp_refr));
-    if(disp_refr->prev_scr) {
-        top_prev_scr = ug_refr_get_top_obj(&start_mask, disp_refr->prev_scr);
-    }
+
 
     /*Draw a display background if there is no top object*/
-    if(top_act_scr == NULL && top_prev_scr == NULL) {
-        if(disp_refr->bg_img) {
-            //TODO: ug_draw_img(&a, &start_mask, disp_refr->bg_img, &dsc);
-        } else {
-            ug_draw_rect_dsc_t dsc;
-            ug_draw_rect_dsc_init(&dsc);
-            dsc.bg_color = disp_refr->bg_color;
-            ug_draw_rect(&start_mask, &start_mask, &dsc);
-
-        }
-    }
-    /*Refresh the previous screen if any*/
-    if(disp_refr->prev_scr) {
-        /*Get the most top object which is not covered by others*/
-        if(top_prev_scr == NULL) {
-            top_prev_scr = disp_refr->prev_scr;
-        }
-        /*Do the refreshing from the top object*/
-        ug_refr_obj_and_children(top_prev_scr, &start_mask);
-
+    if(top_act_scr == NULL) {
+        ug_draw_rect_dsc_t dsc;
+        ug_draw_rect_dsc_init(&dsc);
+        dsc.bg_color = disp_refr->bg_color;
+        ug_draw_rect(&start_mask, &start_mask, &dsc);
     }
 
 
     if(top_act_scr == NULL) {
-         top_act_scr = disp_refr->act_scr;
-     }
+        top_act_scr = disp_refr->act_scr;
+    }
     /*Do the refreshing from the top object*/
     ug_refr_obj_and_children(top_act_scr, &start_mask);
 
@@ -288,11 +270,11 @@ static ug_obj_t * ug_refr_get_top_obj(const ug_area_t * area_p, ug_obj_t * obj)
 {
     ug_obj_t * found_p = NULL;
 
-    /*If this object is fully cover the draw area check the children too */
+
     if(_ug_area_is_in(area_p, &obj->coords, 0) && obj->hidden == 0) {
+
         ug_design_res_t design_res = obj->design_cb ? obj->design_cb(obj, area_p, UG_DESIGN_COVER_CHK) : UG_DESIGN_RES_NOT_COVER;
-        if(design_res == UG_DESIGN_RES_MASKED) return NULL;
-                                                                                                                
+        // design_res :如果area_p 完全在 obj内部 则 = UG_DESIGN_RES_COVER 
         ug_obj_t * i;
         _UG_LL_READ(obj->child_ll, i) {
             found_p = ug_refr_get_top_obj(area_p, i);
@@ -348,7 +330,7 @@ static void ug_refr_obj_and_children(ug_obj_t * top_p, const ug_area_t * mask_p)
         }
 
         /*Call the post draw design function of the parents of the to object*/
-        if(par->design_cb) par->design_cb(par, mask_p, UG_DESIGN_DRAW_POST);
+        if(par->design_cb) par->design_cb(par, mask_p, UG_DESIGN_DRAW_MAIN);
 
         /*The new border will be there last parents,
          *so the 'younger' brothers of parent will be refreshed*/
@@ -374,12 +356,12 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
     ug_area_t obj_mask;
     ug_area_t obj_ext_mask;
     ug_area_t obj_area;
-    ug_coord_t ext_size = obj->ext_draw_pad;
-    ug_obj_get_coords(obj, &obj_area);
-    obj_area.x1 -= ext_size;
-    obj_area.y1 -= ext_size;
-    obj_area.x2 += ext_size;
-    obj_area.y2 += ext_size;
+    // ug_coord_t ext_size = obj->ext_draw_pad;
+    // ug_obj_get_coords(obj, &obj_area);
+    // obj_area.x1 -= ext_size;
+    // obj_area.y1 -= ext_size;
+    // obj_area.x2 += ext_size;
+    // obj_area.y2 += ext_size;
     union_ok = _ug_area_intersect(&obj_ext_mask, mask_ori_p, &obj_area);
 
     /*Draw the parent and its children only if they ore on 'mask_parent'*/
@@ -397,11 +379,11 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
             ug_area_t child_area;
             _UG_LL_READ_BACK(obj->child_ll, child_p) {
                 ug_obj_get_coords(child_p, &child_area);
-                ext_size = child_p->ext_draw_pad;
-                child_area.x1 -= ext_size;
-                child_area.y1 -= ext_size;
-                child_area.x2 += ext_size;
-                child_area.y2 += ext_size;
+                // ext_size = child_p->ext_draw_pad;
+                // child_area.x1 -= ext_size;
+                // child_area.y1 -= ext_size;
+                // child_area.x2 += ext_size;
+                // child_area.y2 += ext_size;
                 /* Get the union (common parts) of original mask (from obj)
                  * and its child */
                 union_ok = _ug_area_intersect(&mask_child, &obj_mask, &child_area);

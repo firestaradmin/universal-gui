@@ -10,6 +10,27 @@
 
 
 struct _ug_obj_t;
+
+
+/** Design modes */
+enum {
+    UG_DESIGN_DRAW_MAIN, /**< Draw the main portion of the object */
+    UG_DESIGN_COVER_CHK, /**< Check if the object fully covers the 'mask_p' area */
+};
+typedef uint8_t ug_design_mode_t;
+
+
+/** Design results */
+enum {
+    UG_DESIGN_RES_OK,          /**< Draw ready */
+    UG_DESIGN_RES_COVER,       /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is fully covered*/
+    UG_DESIGN_RES_NOT_COVER,   /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is not covered*/
+    UG_DESIGN_RES_MASKED,      /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is masked out (children also not cover)*/
+};
+typedef uint8_t ug_design_res_t;
+
+
+
 /**
  * The design callback is used to draw the object on the screen.
  * It accepts the object, a mask area, and the mode in which to draw the object.
@@ -38,6 +59,9 @@ typedef void (*ug_event_cb_t)(struct _ug_obj_t * obj, ug_event_t event);
   * Applications should use ::ug_obj_set_event_cb to be notified of events that occur
   * on the object. */
 enum {
+    UG_SIGNAL_CHILD_CHG, /**< Child was removed/added */
+    UG_SIGNAL_COORD_CHG, /**< Object coordinates/size have changed */
+    UG_SIGNAL_PARENT_SIZE_CHG, /**< Parent's size has changed */
     /*General signals*/
     UG_SIGNAL_CHILD_CHG, /**< Child was removed/added */
     UG_SIGNAL_COORD_CHG, /**< Object coordinates/size have changed */
