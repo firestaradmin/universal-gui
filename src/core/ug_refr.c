@@ -53,248 +53,30 @@ void _ug_disp_refr_task(ug_task_t * task)
         return;
     }
 
-    // 将需要重绘的区域合并，如果合并后区域更小的话
-    ug_refr_join_area();
-
-    ug_refr_areas();
-
-    /*If refresh happened ...*/
-    if(disp_refr->inv_p != 0) {
- 
-        /*Clean up*/
-        _ug_memset_00(disp_refr->inv_areas, sizeof(disp_refr->inv_areas));
-        _ug_memset_00(disp_refr->inv_area_joined, sizeof(disp_refr->inv_area_joined));
-        disp_refr->inv_p = 0;
-
-        elaps = ug_tick_elaps(start);   /* get elapsed time */
+    if(disp_refr->needRefreashScreen == true){
+        ug_refr_screen(disp_refr);
+    }
+    else{
+        // // 将需要重绘的区域合并，如果合并后区域更小的话
+        // ug_refr_join_area();
 
     }
+
+    while()
 
 }
 
 
-/**********************
- *   STATIC FUNCTIONS
- **********************/
-
-/**
- * Join the areas which has got common parts
- * 将需要重绘的区域合并，如果合并后区域更小的话
- * 
- */
-static void ug_refr_join_area(void)
+void ug_refr_screen(ug_disp_t *disp)
 {
-    uint32_t join_from;
-    uint32_t join_in;
-    ug_area_t joined_area;
 
-    for(join_in = 0; join_in < disp_refr->inv_p; join_in++) {   //遍历每个inv区域
-        /* if the area is already been joined , skip. */
-        if(disp_refr->inv_area_joined[join_in] != 0) continue;
+    ug_obj_t *act_scr = disp->act_scr;
+    if(act_scr == NULL) return ;
 
-        /*Check all areas to join them in 'join_in'*/
-        for(join_from = 0; join_from < disp_refr->inv_p; join_from++) {     //遍历每个inv区域
-            /*Handle only unjoined areas and ignore itself*/
-            if(disp_refr->inv_area_joined[join_from] != 0 || join_in == join_from) {
-                continue;
-            }
-
-            /*Check if the areas are on each other*/
-            if(_ug_area_is_on(&disp_refr->inv_areas[join_in], &disp_refr->inv_areas[join_from]) == false) {
-                continue;
-            }
-
-            _ug_area_join(&joined_area, &disp_refr->inv_areas[join_in], &disp_refr->inv_areas[join_from]);
-
-            /*Join two area only if the joined area size is smaller*/
-            if(ug_area_get_size(&joined_area) < (ug_area_get_size(&disp_refr->inv_areas[join_in]) +
-                                                 ug_area_get_size(&disp_refr->inv_areas[join_from]))) {
-                ug_area_copy(&disp_refr->inv_areas[join_in], &joined_area);
-
-                /*Mark 'join_form' is joined into 'join_in'*/
-                disp_refr->inv_area_joined[join_from] = 1;
-            }
-        }
-    }
+    ug_refr_obj_and_children(act_scr, disp->area);
 }
 
-/**
- * Refresh the joined areas
- * 重绘需要重绘的区域
- */
-static void ug_refr_areas(void)
-{
-    if(disp_refr->inv_p == 0) return;
 
-    /*Find the last area which will be drawn*/
-    int32_t i;
-    int32_t last_i = 0; 
-    // find a area which not joined to last_i
-    for(i = disp_refr->inv_p - 1; i >= 0; i--) {
-        if(disp_refr->inv_area_joined[i] == 0) {
-            last_i = i;
-            break;
-        }
-    }
-
-    // 清楚标志最后的区域正在被渲染的标志位
-    disp_refr->driver.buffer->last_area = 0;
-    disp_refr->driver.buffer->last_part = 0;
-
-    for(i = 0; i < disp_refr->inv_p; i++) {
-        /*Refresh the unjoined areas*/
-        if(disp_refr->inv_area_joined[i] == 0) {
-
-            if(i == last_i) disp_refr->driver.buffer->last_area = 1;
-            disp_refr->driver.buffer->last_part = 0;
-            ug_refr_area(&disp_refr->inv_areas[i]);
-
-        }
-    }
-}
-
-/**
- * Refresh an area if there is Virtual Display Buffer
- * @param area_p  pointer to an area to refresh
- */
-static void ug_refr_area(const ug_area_t * area_p)
-{
-    /*True double buffering: there are two screen sized buffers. Just redraw directly into a * buffer */
-    if(ug_disp_is_true_double_buf(disp_refr)) {
-        ug_disp_buf_t * vdb = ug_disp_get_buf(disp_refr);
-        vdb->area.x1        = 0;
-        vdb->area.x2        = ug_disp_get_hor_res(disp_refr) - 1;
-        vdb->area.y1        = 0;
-        vdb->area.y2        = ug_disp_get_ver_res(disp_refr) - 1;
-        disp_refr->driver.buffer->last_part = 1;
-        ug_refr_area_part(area_p);
-    }
-    /*The buffer is smaller: refresh the area in parts： 部分刷新模式*/
-    else {
-        ug_disp_buf_t * vdb = ug_disp_get_buf(disp_refr);
-
-        ug_coord_t w = ug_area_get_width(area_p);   // 绘制的宽度
-        ug_coord_t h = ug_area_get_height(area_p);  // 绘制的高度
-
-        /* Calculate the max y value */
-        ug_coord_t y2 = area_p->y2 >= ug_disp_get_ver_res(disp_refr) ? ug_disp_get_ver_res(disp_refr) - 1 : area_p->y2;
-
-        int32_t max_row = (uint32_t)vdb->size / w; // 一次最大能绘制的行数：VDB 能储存的行数
-        if(max_row > h) max_row = h;    
-
-        ug_coord_t row;
-        ug_coord_t row_last = 0;
-        /* 使用完整的VDB大小绘制 */
-        for(row = area_p->y1; row + max_row - 1 <= y2; row += max_row) {
-            /*Calc. the next y coordinates of VDB*/
-            vdb->area.x1 = area_p->x1;
-            vdb->area.x2 = area_p->x2;
-            vdb->area.y1 = row;
-            vdb->area.y2 = row + max_row - 1;
-            if(vdb->area.y2 > y2) vdb->area.y2 = y2;
-            row_last = vdb->area.y2;
-            if(y2 == row_last) disp_refr->driver.buffer->last_part = 1;
-            ug_refr_area_part(area_p);
-        }
-
-        /*If the last y coordinates are not handled yet ...*/
-        /* 如果没绘制完，或者用不到完整的VDB，继续绘制剩余的部分 */
-        if(y2 != row_last) {
-            /*Calc. the next y coordinates of VDB*/
-            vdb->area.x1 = area_p->x1;
-            vdb->area.x2 = area_p->x2;
-            vdb->area.y1 = row;
-            vdb->area.y2 = y2;
-
-            disp_refr->driver.buffer->last_part = 1;
-            ug_refr_area_part(area_p);
-        }
-    }
-}
-
-/**
- * Refresh a part of an area which is on the actual Virtual Display Buffer
- * @param area_p pointer to an area to refresh
- */
-static void ug_refr_area_part(const ug_area_t * area_p)
-{
-    ug_disp_buf_t * vdb = ug_disp_get_buf(disp_refr);
-
-    /*In non double buffered mode, before rendering the next part wait until the previous image is
-     * flushed*/
-    if(ug_disp_is_double_buf(disp_refr) == false) {
-        while(vdb->flushing) {
-            if(disp_refr->driver.wait_cb) disp_refr->driver.wait_cb(&disp_refr->driver);
-        }
-    }
-
-    ug_obj_t * top_act_scr = NULL;
-
-    /* 计算当前被绘制的区域 to start_mask */
-    ug_area_t start_mask;
-    _ug_area_intersect(&start_mask, area_p, &vdb->area);
-
-    /*Get the most top object which is not covered by others*/
-    top_act_scr = ug_refr_get_top_obj(&start_mask, ug_disp_get_actscr(disp_refr));
-
-
-    /*Draw a display background if there is no top object*/
-    if(top_act_scr == NULL) {
-        ug_draw_rect_dsc_t dsc;
-        ug_draw_rect_dsc_init(&dsc);
-        dsc.bg_color = disp_refr->bg_color;
-        ug_draw_rect(&start_mask, &start_mask, &dsc);
-    }
-
-
-    if(top_act_scr == NULL) {
-        top_act_scr = disp_refr->act_scr;
-    }
-    /*Do the refreshing from the top object*/
-    ug_refr_obj_and_children(top_act_scr, &start_mask);
-
-    /* In true double buffered mode flush only once when all areas were rendered.
-     * In normal mode flush after every area */
-    if(ug_disp_is_true_double_buf(disp_refr) == false) {
-        ug_refr_vdb_flush();
-    }
-}
-
-/**
- * Search the most top object which fully covers an area
- * @param area_p pointer to an area
- * @param obj the first object to start the searching (typically a screen)
- * @return
- */
-static ug_obj_t * ug_refr_get_top_obj(const ug_area_t * area_p, ug_obj_t * obj)
-{
-    ug_obj_t * found_p = NULL;
-
-
-    if(_ug_area_is_in(area_p, &obj->coords, 0) && obj->hidden == 0) {
-
-        ug_design_res_t design_res = obj->design_cb ? obj->design_cb(obj, area_p, UG_DESIGN_COVER_CHK) : UG_DESIGN_RES_NOT_COVER;
-        // design_res :如果area_p 完全在 obj内部 则 = UG_DESIGN_RES_COVER 
-        ug_obj_t * i;
-        _UG_LL_READ(obj->child_ll, i) {
-            found_p = ug_refr_get_top_obj(area_p, i);
-
-            /*If a children is ok then break*/
-            if(found_p != NULL) {
-                break;
-            }
-        }
-
-        /*If no better children use this object*/
-        if(found_p == NULL) {
-            if(design_res == UG_DESIGN_RES_COVER) {
-                found_p = obj;
-            }
-        }
-    }
-
-    return found_p;
-}
 
 /**
  * Make the refreshing from an object. Draw all its children and the youngers too.
@@ -356,12 +138,7 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
     ug_area_t obj_mask;
     ug_area_t obj_ext_mask;
     ug_area_t obj_area;
-    // ug_coord_t ext_size = obj->ext_draw_pad;
-    // ug_obj_get_coords(obj, &obj_area);
-    // obj_area.x1 -= ext_size;
-    // obj_area.y1 -= ext_size;
-    // obj_area.x2 += ext_size;
-    // obj_area.y2 += ext_size;
+
     union_ok = _ug_area_intersect(&obj_ext_mask, mask_ori_p, &obj_area);
 
     /*Draw the parent and its children only if they ore on 'mask_parent'*/
@@ -435,56 +212,6 @@ static void ug_refr_vdb_flush(void)
 
 
 
-/**
- * Invalidate an area on display to redraw it
- * @param area_p pointer to area which should be invalidated (NULL: delete the invalidated areas)
- * @param disp pointer to display where the area should be invalidated (NULL can be used if there is
- * only one display)
- */
-void _ug_inv_area(ug_disp_t * disp, const ug_area_t * area_p)
-{
-    if(!disp) disp = _ug_refr_get_refrdisp();
-    if(!disp) return;
-
-    /*Clear the invalidate buffer if the parameter is NULL*/
-    if(area_p == NULL) {
-        disp->inv_p = 0;
-        return;
-    }
-
-    ug_area_t scr_area;
-    scr_area.x1 = 0;
-    scr_area.y1 = 0;
-    scr_area.x2 = ug_disp_get_hor_res(disp) - 1;
-    scr_area.y2 = ug_disp_get_ver_res(disp) - 1;
-
-    ug_area_t com_area;
-    bool suc;
-
-    suc = _ug_area_intersect(&com_area, area_p, &scr_area);
-
-    /*The area is truncated to the screen*/
-    if(suc != false) {
-        //if(disp->driver.rounder_cb) disp->driver.rounder_cb(&disp->driver, &com_area);
-
-        /*Save only if this area is not in one of the saved areas*/
-        uint16_t i;
-        for(i = 0; i < disp->inv_p; i++) {
-            if(_ug_area_is_in(&com_area, &disp->inv_areas[i], 0) != false) return;
-        }
-
-        /*Save the area*/
-        if(disp->inv_p < UG_INV_BUF_SIZE) {
-            ug_area_copy(&disp->inv_areas[disp->inv_p], &com_area);
-        }
-        else {   /*If no place for the area add the screen*/
-            disp->inv_p = 0;
-            ug_area_copy(&disp->inv_areas[disp->inv_p], &scr_area);
-        }
-        disp->inv_p++;
-        ug_task_set_prio(disp->refr_task, UG_REFR_TASK_PRIO);
-    }
-}
 
 
 ug_disp_t * _ug_refr_get_refrdisp(void)
@@ -537,26 +264,6 @@ void _ug_refr_task(void * task)
 }
 
 
-void _ug_refr_screen(ug_disp_t *disp)
-{
-    /* updata disp_buf */
-    redrawn_area = _ug_disp_get_actdisp_redrawn_area();
-    _ug_memset_00(redrawn_area, sizeof(ug_area_t));
-    ug_redrawn_area_changed_flag = 0;
-
-    ug_obj_t *act_scr = disp->act_scr;
-    if(act_scr == NULL) return ;
-
-    _ug_refr_draw_obj(act_scr);
-
-    redrawn_area->x1 = 0;
-    redrawn_area->x2 = disp->driver.hor_res - 1;
-    disp->driver.flush_screen(  &disp->driver, 
-                                redrawn_area, 
-                                disp->driver.buffer->buf + (disp->driver.hor_res * redrawn_area->y1));
-    
-
-}
 
 void _ug_refr_draw_obj(ug_obj_t * obj)
 {

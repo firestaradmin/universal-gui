@@ -12,30 +12,12 @@
 struct _ug_obj_t;
 
 
-/** Design modes */
-enum {
-    UG_DESIGN_DRAW_MAIN, /**< Draw the main portion of the object */
-    UG_DESIGN_COVER_CHK, /**< Check if the object fully covers the 'mask_p' area */
-};
-typedef uint8_t ug_design_mode_t;
-
-
-/** Design results */
-enum {
-    UG_DESIGN_RES_OK,          /**< Draw ready */
-    UG_DESIGN_RES_COVER,       /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is fully covered*/
-    UG_DESIGN_RES_NOT_COVER,   /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is not covered*/
-    UG_DESIGN_RES_MASKED,      /**< Returned on `UG_DESIGN_COVER_CHK` if the areas is masked out (children also not cover)*/
-};
-typedef uint8_t ug_design_res_t;
-
-
 
 /**
  * The design callback is used to draw the object on the screen.
  * It accepts the object, a mask area, and the mode in which to draw the object.
  */
-typedef ug_design_res_t (*ug_design_cb_t)(struct _ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode);
+typedef ug_design_res_t (*ug_design_cb_t)(struct _ug_obj_t * obj, const ug_area_t * clip_area);
 
 enum {
     UG_EVENT_PRESSED,             /**< The object has been pressed*/
@@ -79,20 +61,6 @@ typedef ug_res_t (*ug_signal_cb_t)(struct _ug_obj_t * obj, ug_signal_t sign, voi
 
 
 
-enum {
-    UG_STATE_DEFAULT   =  0x00,
-    UG_STATE_CHECKED  =  0x01,
-    UG_STATE_FOCUSED  =  0x02,
-    UG_STATE_EDITED   =  0x04,
-    UG_STATE_HOVERED  =  0x08,
-    UG_STATE_PRESSED  =  0x10,
-    UG_STATE_DISABLED =  0x20,
-};
-
-typedef uint8_t ug_state_t;
-
-
-
 typedef struct _ug_obj_t {
 	char *name;
     struct _ug_obj_t * parent; /**< Pointer to the parent object*/
@@ -100,6 +68,7 @@ typedef struct _ug_obj_t {
     ug_ll_t child_ll;       /**< Linked list to store the children objects*/
 
     ug_area_t coords; /**< Coordinates of the object (x1, y1, x2, y2)*/
+    ug_area_t coords_needClear; 
 
     ug_event_cb_t event_cb; /**< Event callback function */
     ug_signal_cb_t signal_cb; /**< Object type specific signal function*/
@@ -108,10 +77,11 @@ typedef struct _ug_obj_t {
     /*Attributes and states*/
     void * ext_attr;            /**< Object type specific extended data*/
     uint8_t hidden : 1; 
+    uint8_t invalid : 1;    // 1: need redrawed,0: already drawed
+
 
     ug_color_t bg_color;
 
-    ug_state_t state;
 } ug_obj_t;
 
 /*---------------------
@@ -132,12 +102,6 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name);
  */
 ug_res_t ug_obj_del(ug_obj_t * obj);
 
-
-/**
- * Get the `data` parameter of the current event
- * @return the `data` parameter
- */
-const void * ug_event_get_data(void);
 
 /**
  * Call an event function with an object, event, and data.
@@ -165,13 +129,13 @@ ug_res_t ug_signal_send(ug_obj_t * obj, ug_signal_t signal, void * param);
  * @param obj pointer to an object
  * @param area the area to redraw
  */
-void ug_obj_invalidate_area(const ug_obj_t * obj, const ug_area_t * area);
+void ug_obj_markRedraw_area(const ug_obj_t * obj, const ug_area_t * area);
 
 /**
  * Mark the object as invalid therefore its current position will be redrawn by 'ug_refr_task'
  * @param obj pointer to an object
  */
-void ug_obj_invalidate(const ug_obj_t * obj);
+void ug_obj_markRedraw(const ug_obj_t * obj);
 
 
 /*====================

@@ -69,6 +69,12 @@ ug_disp_t * ug_disp_drv_register(ug_disp_drv_t * driver)
     _ug_memset_00(new_disp, sizeof(ug_disp_t));
     _ug_memcpy(&new_disp->driver, driver, sizeof(ug_disp_drv_t));
 
+    new_disp->area.x1 = 0;
+    new_disp->area.y1 = 0;
+    new_disp->area.x2 = driver->hor_res - 1;
+    new_disp->area.y2 = driver->ver_res - 1;
+    
+
     /* Init new_disp'screen linked list */
     _ug_ll_init(&new_disp->scr_ll, sizeof(ug_obj_t));
 
@@ -82,11 +88,12 @@ ug_disp_t * ug_disp_drv_register(ug_disp_drv_t * driver)
 
     /* create first screen for disp. */
     new_disp->act_scr   = ug_obj_create(NULL, NULL, "screen"); /*Create a default screen on the display*/
+    new_disp->needRefreashScreen = true;
 
     /*Create a refresh task*/
     new_disp->refr_task = ug_task_create(_ug_disp_refr_task, UG_DISP_DEF_REFR_PERIOD, UG_REFR_TASK_PRIO, new_disp);
     if(new_disp->refr_task == NULL) return NULL;
-    
+
     ug_task_ready(new_disp->refr_task); /*Be sure the screen will be refreshed immediately on start up*/
 
     return new_disp;

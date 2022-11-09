@@ -66,7 +66,6 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
 	
     /*Create a screen*/
     if(parent == NULL) {
-        //UG_LOG_TRACE("Screen create started");
         ug_disp_t * disp = ug_disp_get_actdisp();
         if(!disp) {
             //UG_LOG_WARN("ug_obj_create: not display created to so far. No place to assign the new screen");
@@ -74,7 +73,6 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
         }
 
         new_obj = _ug_ll_ins_head(&disp->scr_ll);
-        //UG_ASSERT_MEM(new_obj);
         if(new_obj == NULL) return NULL;
 
         if(disp->act_scr == NULL){
@@ -95,9 +93,6 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
         new_obj->coords.y2    = ug_disp_get_ver_res(NULL) - 1;
 
         new_obj->bg_color.full    = UG_OBJ_DEFAULT_BG_COLOR;
-
-
-        
     }
     /*Create a normal object*/
     else {
@@ -123,29 +118,19 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
 
     _ug_ll_init(&(new_obj->child_ll), sizeof(ug_obj_t));
 
-
-
-
-
-    new_obj->state = UG_STATE_DEFAULT;
-
     new_obj->ext_attr = NULL;
-
 
     /*Copy the attributes if required*/
     if(copy != NULL) {
         ug_area_copy(&new_obj->coords, &copy->coords);
-        /*Only copy the `event_cb`. `signal_cb` and `design_cb` will be copied in the derived
-         * object type (e.g. `ug_btn`)*/
         new_obj->event_cb = copy->event_cb;
     }
 
     /*Send a signal to the parent to notify it about the new child*/
     if(parent != NULL) {
         parent->signal_cb(parent, UG_SIGNAL_CHILD_CHG, new_obj);
-
         /* Invalidate the area */
-        ug_obj_invalidate(new_obj);
+        ug_obj_markRedraw(new_obj);
     }
 
     //UG_LOG_INFO("Object create ready");
@@ -162,7 +147,7 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
 ug_res_t ug_obj_del(ug_obj_t * obj)
 {
     //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 
     ug_disp_t * disp = NULL;
     bool act_scr_del = false;
@@ -232,65 +217,10 @@ ug_res_t ug_signal_send(ug_obj_t * obj, ug_signal_t signal, void * param)
 
 
 
-/**
- * Mark an area of an object as invalid.
- * This area will be redrawn by 'ug_refr_task'
- * @param obj pointer to an object
- * @param area the area to redraw
- */
-void ug_obj_invalidate_area(const ug_obj_t * obj, const ug_area_t * area)
+void ug_obj_markRedraw(const ug_obj_t * obj)
 {
-
-    if(ug_obj_get_hidden(obj)) return;
-
-    /*Invalidate the object only if it belongs to the curent or previous'*/
-    ug_obj_t * obj_scr = ug_obj_get_screen(obj);
-    ug_disp_t * disp   = ug_obj_get_disp(obj_scr);
-
-    if(obj_scr == ug_disp_get_actscr(disp)){
-        /*Truncate the area to the object*/
-        ug_area_t obj_coords;
-        ug_area_copy(&obj_coords, &obj->coords);
-
-        bool is_common;
-        ug_area_t area_trunc;
-
-        is_common = _ug_area_intersect(&area_trunc, area, &obj_coords);
-        if(is_common == false) return;  /*The area is not on the object*/
-
-        /* 检查obj 是不是在 par obj 内部 */
-        ug_obj_t * par = ug_obj_get_parent(obj);
-        while(par != NULL) {
-            is_common = _ug_area_intersect(&area_trunc, &area_trunc, &par->coords);
-            if(is_common == false) break;       /*If no common parts with parent break;*/
-            if(ug_obj_get_hidden(par)) return; /*If the parent is hidden then the child is hidden and won't be drawn*/
-
-            par = ug_obj_get_parent(par);
-        }
-
-        if(is_common) _ug_inv_area(disp, &area_trunc);
-    }
+    obj->invalid = 1;
 }
-
-/**
- * Mark the object as invalid therefore its current position will be redrawn by 'ug_refr_task'
- * @param obj pointer to an object
- */
-void ug_obj_invalidate(const ug_obj_t * obj)
-{
-    // /*Truncate the area to the object*/
-    // ug_area_t obj_coords;
-    // ug_coord_t ext_size = obj->ext_draw_pad;
-    // ug_area_copy(&obj_coords, &obj->coords);
-    // obj_coords.x1 -= ext_size;
-    // obj_coords.y1 -= ext_size;
-    // obj_coords.x2 += ext_size;
-    // obj_coords.y2 += ext_size;
-
-    ug_obj_invalidate_area(obj, &obj->coords);
-
-}
-
 
 
 
@@ -376,29 +306,17 @@ ug_disp_t * ug_obj_get_disp(const ug_obj_t * obj)
  */
 static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode)
 {
-    if(mode == UG_DESIGN_COVER_CHK) {
-        /*Most trivial test. Is the mask fully IN the object? If no it surely doesn't cover it*/
-        ug_area_t coords;
-        ug_area_copy(&coords, &obj->coords);
 
-        if(_ug_area_is_in(clip_area, &coords, 0)) 
-            return  UG_DESIGN_RES_COVER;    // area 完全在 obj coords 内部
-            
-        return UG_DESIGN_RES_NOT_COVER;
-    }
-    else if(mode == UG_DESIGN_DRAW_MAIN) {
-        ug_draw_rect_dsc_t draw_dsc;
-        ug_draw_rect_dsc_init(&draw_dsc);
-        ug_area_t coords;
-        ug_area_copy(&coords, &obj->coords);
+    ug_draw_rect_dsc_t draw_dsc;
+    ug_draw_rect_dsc_init(&draw_dsc);
+    ug_area_t coords;
+    ug_area_copy(&coords, &obj->coords);
 
-        draw_dsc.bg_color = obj->bg_color;
+    draw_dsc.bg_color = obj->bg_color;
 
-        ug_draw_rect(&coords, clip_area, &draw_dsc);
+    ug_draw_rect(&coords, clip_area, &draw_dsc);
 
-    }
-
-    return UG_DESIGN_RES_OK;
+    return 0;
 }
 
 
@@ -409,9 +327,6 @@ static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area
 
 
 
-
-#if 1
-
 /**
  * Copy the coordinates of an object to an area
  * @param obj pointer to an object
@@ -419,8 +334,6 @@ static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area
  */
 void ug_obj_get_coords(const ug_obj_t * obj, ug_area_t * cords_p)
 {
-    //ug_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     ug_area_copy(cords_p, &obj->coords);
 }
 
@@ -433,8 +346,6 @@ void ug_obj_get_coords(const ug_obj_t * obj, ug_area_t * cords_p)
  */
 ug_coord_t ug_obj_get_x(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     ug_coord_t rel_x;
     ug_obj_t * parent = ug_obj_get_parent(obj);
     if(parent) {
@@ -453,8 +364,6 @@ ug_coord_t ug_obj_get_x(const ug_obj_t * obj)
  */
 ug_coord_t ug_obj_get_y(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     ug_coord_t rel_y;
     ug_obj_t * parent = ug_obj_get_parent(obj);
     if(parent) {
@@ -473,8 +382,6 @@ ug_coord_t ug_obj_get_y(const ug_obj_t * obj)
  */
 ug_coord_t ug_obj_get_width(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return ug_area_get_width(&obj->coords);
 }
 
@@ -485,15 +392,8 @@ ug_coord_t ug_obj_get_width(const ug_obj_t * obj)
  */
 ug_coord_t ug_obj_get_height(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return ug_area_get_height(&obj->coords);
 }
-
-
-/*---------------------
- * Parent/children get
- *--------------------*/
 
 /**
  * Returns with the parent of an object
@@ -502,8 +402,6 @@ ug_coord_t ug_obj_get_height(const ug_obj_t * obj)
  */
 ug_obj_t * ug_obj_get_parent(const ug_obj_t * obj)
 {
-    //ug_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return obj->parent;
 }
 
@@ -516,8 +414,6 @@ ug_obj_t * ug_obj_get_parent(const ug_obj_t * obj)
  */
 ug_obj_t * ug_obj_get_child(const ug_obj_t * obj, const ug_obj_t * child)
 {
-    //ug_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     ug_obj_t * result = NULL;
 
     if(child == NULL) {
@@ -539,8 +435,6 @@ ug_obj_t * ug_obj_get_child(const ug_obj_t * obj, const ug_obj_t * child)
  */
 ug_signal_cb_t ug_obj_get_signal_cb(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return obj->signal_cb;
 }
 
@@ -551,8 +445,6 @@ ug_signal_cb_t ug_obj_get_signal_cb(const ug_obj_t * obj)
  */
 ug_design_cb_t ug_obj_get_design_cb(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return obj->design_cb;
 }
 
@@ -563,8 +455,6 @@ ug_design_cb_t ug_obj_get_design_cb(const ug_obj_t * obj)
  */
 ug_event_cb_t ug_obj_get_event_cb(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return obj->event_cb;
 }
 
@@ -580,8 +470,6 @@ ug_event_cb_t ug_obj_get_event_cb(const ug_obj_t * obj)
  */
 void * ug_obj_get_ext_attr(const ug_obj_t * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     return obj->ext_attr;
 }
 
@@ -598,8 +486,6 @@ void * ug_obj_get_ext_attr(const ug_obj_t * obj)
  */
 void ug_obj_set_signal_cb(ug_obj_t * obj, ug_signal_cb_t signal_cb)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     obj->signal_cb = signal_cb;
 }
 /**
@@ -609,8 +495,6 @@ void ug_obj_set_signal_cb(ug_obj_t * obj, ug_signal_cb_t signal_cb)
  */
 void ug_obj_set_design_cb(ug_obj_t * obj, ug_design_cb_t design_cb)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     obj->design_cb = design_cb;
 }
 
@@ -622,8 +506,6 @@ void ug_obj_set_design_cb(ug_obj_t * obj, ug_design_cb_t design_cb)
  */
 void ug_obj_set_event_cb(ug_obj_t * obj, ug_event_cb_t event_cb)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
-
     obj->event_cb = event_cb;
 }
 
@@ -635,7 +517,7 @@ void ug_obj_set_color(ug_obj_t *obj, ug_color_t color)
 	
 	obj->bg_color.full = color.full;
 	/*Invalidate the new area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 
 }
 
@@ -648,14 +530,13 @@ void ug_obj_set_color(ug_obj_t *obj, ug_color_t color)
 void ug_obj_set_coords(ug_obj_t *obj, ug_area_t *area)
 {
     /*Invalidate the original area*/
-    ug_obj_invalidate(obj);
-
+    ug_obj_markRedraw(obj);
 
 	if(obj == NULL) return;
 	
 	_ug_memcpy(&obj->coords, area, sizeof(ug_area_t));
 	/*Invalidate the new area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 }
 
 void ug_obj_move(ug_obj_t *obj, int16_t dx, int16_t dy)
@@ -745,7 +626,7 @@ void ug_obj_set_pos(ug_obj_t * obj, ug_coord_t x, ug_coord_t y)
     if(diff.x == 0 && diff.y == 0) return;
 
     /*Invalidate the original area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 
     /*Save the original coordinates*/
     ug_area_t ori;
@@ -765,7 +646,7 @@ void ug_obj_set_pos(ug_obj_t * obj, ug_coord_t x, ug_coord_t y)
     if(par) par->signal_cb(par, UG_SIGNAL_CHILD_CHG, obj);
 
     /*Invalidate the new area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 }
 
 /**
@@ -811,7 +692,7 @@ void ug_obj_set_size(ug_obj_t * obj, ug_coord_t w, ug_coord_t h)
     }
 
     /*Invalidate the original area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 
     /*Save the original coordinates*/
     ug_area_t ori;
@@ -841,7 +722,7 @@ void ug_obj_set_size(ug_obj_t * obj, ug_coord_t w, ug_coord_t h)
     }
 
     /*Invalidate the new area*/
-    ug_obj_invalidate(obj);
+    ug_obj_markRedraw(obj);
 
     /*Automatically realign the object if required*/
 #if UG_USE_OBJ_REALIGN
@@ -982,7 +863,6 @@ void * ug_obj_allocate_ext_attr(ug_obj_t * obj, uint16_t ext_size)
 
 static void ug_obj_del_async_cb(void * obj)
 {
-    //UG_ASSERT_OBJ(obj, UG_OBJX_NAME);
 
     ug_obj_del(obj);
 }
@@ -1072,158 +952,6 @@ static void ug_event_mark_deleted(ug_obj_t * obj)
 }
 
 
-static void obj_align_core(ug_obj_t * obj, const ug_obj_t * base, ug_align_t align, bool x_set, bool y_set, ug_coord_t x_ofs, ug_coord_t y_ofs)
-{
-    ug_point_t new_pos;
-    _ug_area_align(&base->coords, &obj->coords, align, &new_pos);
-
-    /*Bring together the coordination system of base and obj*/
-    ug_obj_t * par        = ug_obj_get_parent(obj);
-    ug_coord_t par_abs_x  = par->coords.x1;
-    ug_coord_t par_abs_y  = par->coords.y1;
-    new_pos.x += x_ofs;
-    new_pos.y += y_ofs;
-    new_pos.x -= par_abs_x;
-    new_pos.y -= par_abs_y;
-
-    if(x_set && y_set) ug_obj_set_pos(obj, new_pos.x, new_pos.y);
-    else if(x_set) ug_obj_set_x(obj, new_pos.x);
-    else if(y_set) ug_obj_set_y(obj, new_pos.y);
-}
-
-
-static void obj_align_origo_core(ug_obj_t * obj, const ug_obj_t * base, ug_align_t align,  bool x_set, bool y_set, ug_coord_t x_ofs, ug_coord_t y_ofs)
-{
-    ug_coord_t new_x = ug_obj_get_x(obj);
-    ug_coord_t new_y = ug_obj_get_y(obj);
-
-    ug_coord_t obj_w_half = ug_obj_get_width(obj) / 2;
-    ug_coord_t obj_h_half = ug_obj_get_height(obj) / 2;
-
-
-    switch(align) {
-        case UG_ALIGN_CENTER:
-            new_x = ug_obj_get_width(base) / 2 - obj_w_half;
-            new_y = ug_obj_get_height(base) / 2 - obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_TOP_LEFT:
-            new_x = -obj_w_half;
-            new_y = -obj_h_half;
-            break;
-        case UG_ALIGN_IN_TOP_MID:
-            new_x = ug_obj_get_width(base) / 2 - obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_TOP_RIGHT:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_BOTTOM_LEFT:
-            new_x = -obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-        case UG_ALIGN_IN_BOTTOM_MID:
-            new_x = ug_obj_get_width(base) / 2 - obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_BOTTOM_RIGHT:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_LEFT_MID:
-            new_x = -obj_w_half;
-            new_y = ug_obj_get_height(base) / 2 - obj_h_half;
-            break;
-
-        case UG_ALIGN_IN_RIGHT_MID:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = ug_obj_get_height(base) / 2 - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_TOP_LEFT:
-            new_x = -obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_TOP_MID:
-            new_x = ug_obj_get_width(base) / 2 - obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_TOP_RIGHT:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_BOTTOM_LEFT:
-            new_x = -obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_BOTTOM_MID:
-            new_x = ug_obj_get_width(base) / 2 - obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_BOTTOM_RIGHT:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_LEFT_TOP:
-            new_x = -obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_LEFT_MID:
-            new_x = -obj_w_half;
-            new_y = ug_obj_get_height(base) / 2 - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_LEFT_BOTTOM:
-            new_x = -obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_RIGHT_TOP:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = -obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_RIGHT_MID:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = ug_obj_get_height(base) / 2 - obj_h_half;
-            break;
-
-        case UG_ALIGN_OUT_RIGHT_BOTTOM:
-            new_x = ug_obj_get_width(base) - obj_w_half;
-            new_y = ug_obj_get_height(base) - obj_h_half;
-            break;
-    }
-
-    /*Bring together the coordination system of base and obj*/
-    ug_obj_t * par        = ug_obj_get_parent(obj);
-    ug_coord_t base_abs_x = base->coords.x1;
-    ug_coord_t base_abs_y = base->coords.y1;
-    ug_coord_t par_abs_x  = par->coords.x1;
-    ug_coord_t par_abs_y  = par->coords.y1;
-    new_x += x_ofs + base_abs_x;
-    new_y += y_ofs + base_abs_y;
-    new_x -= par_abs_x;
-    new_y -= par_abs_y;
-    if(x_set && y_set) ug_obj_set_pos(obj, new_x, new_y);
-    else if(x_set) ug_obj_set_x(obj, new_x);
-    else if(y_set) ug_obj_set_y(obj, new_y);
-
-}
-
-
-
 
 /**
  * Reposition the children of an object. (Called recursively)
@@ -1244,5 +972,3 @@ static void refresh_children_position(ug_obj_t * obj, ug_coord_t x_diff, ug_coor
     }
 }
 
-
-#endif

@@ -84,6 +84,7 @@ typedef struct _disp_t {
     /**< Driver to the display*/
     ug_disp_drv_t driver;
 
+    ug_area_t area;
     
     /**< A task which periodically checks the dirty areas and refreshes them*/
     ug_task_t * refr_task;
@@ -92,16 +93,9 @@ typedef struct _disp_t {
     /** Screens of the display*/
     ug_ll_t scr_ll;
     struct _ug_obj_t * act_scr;   /**< Currently active screen on this display */
+    bool needRefreashScreen;
 
     ug_color_t bg_color;          /**< Default display color when screens are transparent*/
-
-
-
-    ug_area_t inv_areas[UG_INV_BUF_SIZE];       // 需要重绘的区域
-    uint8_t inv_area_joined[UG_INV_BUF_SIZE];   // 区域合并标志
-    uint32_t inv_p : 10;    /* invalid parts */ // 需要重绘的区域数
-
-
 
     /*Miscellaneous data*/
     uint8_t disp_index;     /* Used to select/change which physical screen to display. */
