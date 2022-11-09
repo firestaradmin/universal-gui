@@ -135,17 +135,15 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
     bool union_ok; /* Store the return value of area_union */
     /* Truncate the original mask to the coordinates of the parent
      * because the parent and its children are visible only here */
-    ug_area_t obj_mask;
     ug_area_t obj_ext_mask;
-    ug_area_t obj_area;
 
-    union_ok = _ug_area_intersect(&obj_ext_mask, mask_ori_p, &obj_area);
+    union_ok = _ug_area_intersect(&obj_ext_mask, mask_ori_p, &obj->coords);
 
     /*Draw the parent and its children only if they ore on 'mask_parent'*/
     if(union_ok != false) {
 
         /* Redraw the object */
-        if(obj->design_cb) obj->design_cb(obj, &obj_ext_mask, UG_DESIGN_DRAW_MAIN);
+        if(obj->design_cb) obj->design_cb(obj, &obj_ext_mask);
 
         /*Create a new 'obj_mask' without 'ext_size' because the children can't be visible there*/
         ug_obj_get_coords(obj, &obj_area);
@@ -156,13 +154,7 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
             ug_area_t child_area;
             _UG_LL_READ_BACK(obj->child_ll, child_p) {
                 ug_obj_get_coords(child_p, &child_area);
-                // ext_size = child_p->ext_draw_pad;
-                // child_area.x1 -= ext_size;
-                // child_area.y1 -= ext_size;
-                // child_area.x2 += ext_size;
-                // child_area.y2 += ext_size;
-                /* Get the union (common parts) of original mask (from obj)
-                 * and its child */
+
                 union_ok = _ug_area_intersect(&mask_child, &obj_mask, &child_area);
 
                 /*If the parent and the child has common area then refresh the child */
