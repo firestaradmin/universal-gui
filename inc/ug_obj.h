@@ -17,7 +17,7 @@ struct _ug_obj_t;
  * The design callback is used to draw the object on the screen.
  * It accepts the object, a mask area, and the mode in which to draw the object.
  */
-typedef ug_design_res_t (*ug_design_cb_t)(struct _ug_obj_t * obj, const ug_area_t * clip_area);
+typedef int (*ug_design_cb_t)(struct _ug_obj_t * obj, const ug_area_t * clip_area);
 
 enum {
     UG_EVENT_PRESSED,             /**< The object has been pressed*/
@@ -41,12 +41,11 @@ typedef void (*ug_event_cb_t)(struct _ug_obj_t * obj, ug_event_t event);
   * Applications should use ::ug_obj_set_event_cb to be notified of events that occur
   * on the object. */
 enum {
-    UG_SIGNAL_CHILD_CHG, /**< Child was removed/added */
-    UG_SIGNAL_COORD_CHG, /**< Object coordinates/size have changed */
-    UG_SIGNAL_PARENT_SIZE_CHG, /**< Parent's size has changed */
+
     /*General signals*/
     UG_SIGNAL_CHILD_CHG, /**< Child was removed/added */
     UG_SIGNAL_COORD_CHG, /**< Object coordinates/size have changed */
+    UG_SIGNAL_PARENT_SIZE_CHG, /**< Parent's size has changed */
 
     UG_SIGNAL_PRESSED,           /**< The object has been pressed*/
     UG_SIGNAL_RELEASED,          /**< User pressed object for a short period of time, then released it. Not called if dragged. */
@@ -135,7 +134,7 @@ void ug_obj_markRedraw_area(const ug_obj_t * obj, const ug_area_t * area);
  * Mark the object as invalid therefore its current position will be redrawn by 'ug_refr_task'
  * @param obj pointer to an object
  */
-void ug_obj_markRedraw(const ug_obj_t * obj);
+void ug_obj_markRedraw(ug_obj_t * obj);
 
 
 /*====================
@@ -239,7 +238,7 @@ uint8_t ug_obj_get_protect(const ug_obj_t * obj);
 bool ug_obj_is_protected(const ug_obj_t * obj, uint8_t prot);
 
 
-ug_state_t ug_obj_get_state(const ug_obj_t * obj, uint8_t part);
+int ug_obj_get_state(const ug_obj_t * obj, uint8_t part);
 
 
 /**

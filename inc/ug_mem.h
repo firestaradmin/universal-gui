@@ -159,7 +159,6 @@ void _ug_memset_00(void * dst, size_t len);
 
 void _ug_memset(void * dst, uint8_t v, size_t len);
 
-void * _ug_memcpy(void * dst, const void * src, size_t len);
 #endif // !__UG_MEM_H__
 
 

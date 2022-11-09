@@ -1,4 +1,4 @@
-#include "UVGUI.h"
+#include "ug_main.h"
 #include "ug_obj.h"
 #include "ug_mem.h"
 #include "ug_draw_rect.h"
@@ -35,7 +35,7 @@ static const void * event_act_data;
  **********************/
 
 /* obj core func. */
-static ug_design_res_t  ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode);
+static int  ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area);
 static ug_res_t         ug_obj_signal(ug_obj_t * obj, ug_signal_t sign, void * param);
 
 
@@ -112,7 +112,7 @@ ug_obj_t * ug_obj_create(ug_obj_t * parent, const ug_obj_t * copy, char *name)
         new_obj->coords.y1    = parent->coords.y1;
         new_obj->coords.y2    = parent->coords.y1 + UG_OBJ_DEF_HEIGHT;
 
-        new_obj->bg_color.full     = UG_COLOR_BLUE;
+        new_obj->bg_color.full     = UG_COLOR_BLUE.full;
     }
 
 
@@ -217,7 +217,7 @@ ug_res_t ug_signal_send(ug_obj_t * obj, ug_signal_t signal, void * param)
 
 
 
-void ug_obj_markRedraw(const ug_obj_t * obj)
+void ug_obj_markRedraw(ug_obj_t * obj)
 {
     obj->invalid = 1;
 }
@@ -304,7 +304,7 @@ ug_disp_t * ug_obj_get_disp(const ug_obj_t * obj)
  * 它就像大海中的巨兽，鞭挞着我的脸颊，无情、残忍、凶狠。我无力抵抗，还好，内心深处
  * 的那一丝未来美好的希冀，总是在我即将倒下的时候，支持着我，我会努力的，我会得到我想要的生活，和你一起。
  */
-static ug_design_res_t ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area, ug_design_mode_t mode)
+static int ug_obj_design(ug_obj_t * obj, const ug_area_t * clip_area)
 {
 
     ug_draw_rect_dsc_t draw_dsc;
@@ -892,7 +892,7 @@ static void obj_del_core(ug_obj_t * obj)
 
     /* All children deleted.
      * Now clean up the object specific data*/
-    obj->signal_cb(obj, UG_SIGNAL_CLEANUP, NULL);
+    // obj->signal_cb(obj, UG_SIGNAL_CLEANUP, NULL);
 
     /*Remove the object from parent's children list*/
     ug_obj_t * par = ug_obj_get_parent(obj);
@@ -925,10 +925,10 @@ static ug_res_t ug_obj_signal(ug_obj_t * obj, ug_signal_t sign, void * param)
 
     ug_res_t res = UG_RES_OK;
 
-    if(sign == UG_SIGNAL_CHILD_CHG) {
-        /*Return 'invalid' if the child change signal is not enabled*/
-        if(ug_obj_is_protected(obj, UG_PROTECT_CHILD_CHG) != false) res = UG_RES_INV;
-    }
+    // if(sign == UG_SIGNAL_CHILD_CHG) {
+    //     /*Return 'invalid' if the child change signal is not enabled*/
+    //     if(ug_obj_is_protected(obj, UG_PROTECT_CHILD_CHG) != false) res = UG_RES_INV;
+    // }
 
 #if UG_USE_OBJ_REALIGN
     else if(sign == UG_SIGNAL_PARENT_SIZE_CHG) {

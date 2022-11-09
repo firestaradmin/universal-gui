@@ -3,7 +3,7 @@
 #include "ug_math.h"
 #include "ug_tick.h"
 #include "ug_draw_rect.h"
-#include "ug_log.h"
+// #include "ug_log.h"
 #include "ug_obj.h"
 #include "ug_area.h"
 /**********************
@@ -17,16 +17,12 @@ static ug_disp_t * disp_refr;   /* disp will being refreshed */
 /**********************
  *  STATIC PROTOTYPES
  **********************/
-static void ug_refr_join_area(void);
-static void ug_refr_areas(void);
-static void ug_refr_area(const ug_area_t * area_p);
-static void ug_refr_area_part(const ug_area_t * area_p);
-static ug_obj_t * ug_refr_get_top_obj(const ug_area_t * area_p, ug_obj_t * obj);
-static void ug_refr_obj_and_children(ug_obj_t * top_p, const ug_area_t * mask_p);
-static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p);
+
 static void ug_refr_vdb_flush(void);
 
+static void ug_refr_obj_and_children(ug_obj_t *obj, const ug_area_t *mask_p);
 
+static void _ug_refr_obj(ug_obj_t *obj, const ug_area_t *mask);
 
 /**
  * Called periodically to handle the refreshing
@@ -47,22 +43,28 @@ void _ug_disp_refr_task(ug_task_t * task)
     ug_task_set_prio(task, UG_TASK_PRIO_OFF);
 #endif
 
-    /*Do nothing if there is no active screen*/
-    if(disp_refr->act_scr == NULL) {
-        disp_refr->inv_p = 0;
-        return;
-    }
+
 
     if(disp_refr->needRefreashScreen == true){
         ug_refr_screen(disp_refr);
+        disp_refr->needRefreashScreen = false;
     }
     else{
-        // // 将需要重绘的区域合并，如果合并后区域更小的话
+        // 将需要重绘的区域合并，如果合并后区域更小的话
         // ug_refr_join_area();
+        ug_area_t child_area;
+        ug_obj_t * child_p;
+        _UG_LL_READ_BACK(disp_refr->act_scr->child_ll, child_p) {
+            if(child_p->invalid != 1){
+                continue;
+            }
+            ug_obj_get_coords(child_p, &child_area);
+
+            ug_refr_obj_and_children(child_p, &child_area);
+        }
 
     }
 
-    while()
 
 }
 
@@ -73,9 +75,8 @@ void ug_refr_screen(ug_disp_t *disp)
     ug_obj_t *act_scr = disp->act_scr;
     if(act_scr == NULL) return ;
 
-    ug_refr_obj_and_children(act_scr, disp->area);
+    ug_refr_obj_and_children(act_scr, &disp->area);
 }
-
 
 
 /**
@@ -83,51 +84,37 @@ void ug_refr_screen(ug_disp_t *disp)
  * @param top_p pointer to an objects. Start the drawing from it.
  * @param mask_p pointer to an area, the objects will be drawn only here
  */
-static void ug_refr_obj_and_children(ug_obj_t * top_p, const ug_area_t * mask_p)
+static void ug_refr_obj_and_children(ug_obj_t * obj, const ug_area_t * mask_p)
 {
-    /* Normally always will be a top_obj (at least the screen)
-     * but in special cases (e.g. if the screen has alpha) it won't.
-     * In this case use the screen directly */
-    if(top_p == NULL) top_p = ug_disp_get_actscr(disp_refr);
-    if(top_p == NULL) return;  /*Shouldn't happen*/
+    if(obj == NULL) obj = ug_disp_get_actscr(disp_refr);
+    if(obj == NULL) return;  /*Shouldn't happen*/
 
     /*Refresh the top object and its children*/
-    ug_refr_obj(top_p, mask_p);
+    _ug_refr_obj(obj, mask_p);
 
-    /*Draw the 'younger' sibling objects because they can be on top_obj */
-    ug_obj_t * par;
-    ug_obj_t * border_p = top_p;
+    // draw son
+    ug_area_t child_area;
+    ug_area_t mask_child;
+    ug_obj_t * child_p;
+    bool union_ok;
+    _UG_LL_READ_BACK(obj->child_ll, child_p) {
+        ug_obj_get_coords(child_p, &child_area);
+        union_ok = _ug_area_intersect(&mask_child, &mask_p, &child_area);
 
-    par = ug_obj_get_parent(top_p);
-
-    /*Do until not reach the screen*/
-    while(par != NULL) {
-        /*object before border_p has to be redrawn*/
-        ug_obj_t * i = _ug_ll_get_prev(&(par->child_ll), border_p);
-
-        while(i != NULL) {
-            /*Refresh the objects*/
-            ug_refr_obj(i, mask_p);
-            i = _ug_ll_get_prev(&(par->child_ll), i);
+        if(union_ok) {
+            /*Refresh the next children*/
+            ug_refr_obj_and_children(child_p, &mask_child);
         }
-
-        /*Call the post draw design function of the parents of the to object*/
-        if(par->design_cb) par->design_cb(par, mask_p, UG_DESIGN_DRAW_MAIN);
-
-        /*The new border will be there last parents,
-         *so the 'younger' brothers of parent will be refreshed*/
-        border_p = par;
-        /*Go a level deeper*/
-        par = ug_obj_get_parent(par);
     }
+
 }
 
 /**
  * Refresh an object and all of its children. (Called recursively)
  * @param obj pointer to an object to refresh
- * @param mask_ori_p pointer to an area, the objects will be drawn only here
+ * @param mask pointer to an area, the objects will be drawn only here
  */
-static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
+static void _ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask)
 {
     /*Do not refresh hidden objects*/
     if(obj->hidden != 0) return;
@@ -137,36 +124,12 @@ static void ug_refr_obj(ug_obj_t * obj, const ug_area_t * mask_ori_p)
      * because the parent and its children are visible only here */
     ug_area_t obj_ext_mask;
 
-    union_ok = _ug_area_intersect(&obj_ext_mask, mask_ori_p, &obj->coords);
+    union_ok = _ug_area_intersect(&obj_ext_mask, mask, &obj->coords);
 
     /*Draw the parent and its children only if they ore on 'mask_parent'*/
     if(union_ok != false) {
-
         /* Redraw the object */
         if(obj->design_cb) obj->design_cb(obj, &obj_ext_mask);
-
-        /*Create a new 'obj_mask' without 'ext_size' because the children can't be visible there*/
-        ug_obj_get_coords(obj, &obj_area);
-        union_ok = _ug_area_intersect(&obj_mask, mask_ori_p, &obj_area);
-        if(union_ok != false) {
-            ug_area_t mask_child; /*Mask from obj and its child*/
-            ug_obj_t * child_p;
-            ug_area_t child_area;
-            _UG_LL_READ_BACK(obj->child_ll, child_p) {
-                ug_obj_get_coords(child_p, &child_area);
-
-                union_ok = _ug_area_intersect(&mask_child, &obj_mask, &child_area);
-
-                /*If the parent and the child has common area then refresh the child */
-                if(union_ok) {
-                    /*Refresh the next children*/
-                    ug_refr_obj(child_p, &mask_child);
-                }
-            }
-        }
-
-        /* If all the children are redrawn make 'post draw' design */
-        if(obj->design_cb) obj->design_cb(obj, &obj_ext_mask, UG_DESIGN_DRAW_POST);
     }
 }
 
@@ -192,7 +155,7 @@ static void ug_refr_vdb_flush(void)
 
     /*Flush the rendered content to the display*/
     ug_disp_t * disp = disp_refr;
-    if(disp->driver.flush_screen) disp->driver.flush_screen(&disp->driver, &vdb->area, vdb->buf_act);
+    if(disp->driver.flush_screen_cb) disp->driver.flush_screen_cb(&disp->driver, &vdb->area, vdb->buf_act);
 
     if(vdb->buf1 && vdb->buf2) {
         if(vdb->buf_act == vdb->buf1)

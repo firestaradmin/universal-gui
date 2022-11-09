@@ -233,14 +233,6 @@ ug_disp_buf_t * ug_disp_get_buf(ug_disp_t * disp)
     return disp->driver.buffer;
 }
 
-/**
- * Get the number of areas in the buffer
- * @return number of invalid areas
- */
-uint16_t ug_disp_get_inv_buf_size(ug_disp_t * disp)
-{
-    return disp->inv_p;
-}
 
 
 /**

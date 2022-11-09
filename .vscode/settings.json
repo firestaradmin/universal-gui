@@ -7,7 +7,7 @@
         "stdio.h": "c"
     },
     "files.exclude": {
-        ".bak/**": true,
+        ".bak/**": false,
 
     },
 }

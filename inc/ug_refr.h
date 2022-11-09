@@ -31,6 +31,7 @@ void _ug_inv_area(ug_disp_t * disp, const ug_area_t * area_p);
 
 ug_disp_t * _ug_refr_get_refrdisp(void);
 
+void ug_refr_screen(ug_disp_t *disp);
 #endif //!__UG_REFR_H__
 
 
